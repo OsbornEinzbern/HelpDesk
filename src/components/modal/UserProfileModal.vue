@@ -401,7 +401,6 @@ const canEditSuperAdmin = computed(() => {
 })
 
 const canEditAdmin = computed(() => {
-  console.log("CanEditAdmin Form ID: ", props?.user?.user_id)
   if(props?.user?.user_id === 1){
     return true
   }
@@ -412,10 +411,7 @@ const canEditAdmin = computed(() => {
 })
 
 const canEditRole = computed(() => {
-  if(props?.user?.user_id === 1){
-    return true
-  }
-  if(!form.organization){
+  if(getUserRole() !== 'admin' || props?.user?.user_id === 1 || !form.organization){
     return true
   }
   return false
@@ -677,7 +673,7 @@ function payloadCreate(form){
       payload.phone_number = ''
     }
     
-    if (canEditRole.value && form.roleId) {
+    if (form.roleId) {
       payload.role = form.roleId  // Число 1,2,3,4
     } else {
       payload.role = null
@@ -919,12 +915,29 @@ const deleteUser = async () => {
   }
   if (confirmed) {
     console.log("Отправка на сервер при удалении пользователя: ", form.id)
+    let confirmed2
     const payload = {}
-    payload.user_id = form.id
-    await usersStore.deleteUser(payload)
-    isEditing.value = false
-    await loadData()
-    close()
+    payload.users = [form.id]
+    let res = await usersStore.deleteUser(payload)
+    if(res.validator_fails){
+      await successUserModal.value.open({
+        title: '',
+        mainMessage: 'Ошибка при удалении пользователя. Пользователь не удален',
+        type: 'notSuccess',
+      })
+    }
+    else{
+      confirmed2 = await successUserModal.value.open({
+        title: '',
+        mainMessage: 'Пользователь успешно удален',
+        type: 'success',
+      })
+      if(confirmed2){
+      await loadData()
+      isEditing.value = false
+      close()
+      }
+    }
   }
 }
 </script>
