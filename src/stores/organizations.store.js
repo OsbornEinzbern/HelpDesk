@@ -1,3 +1,8 @@
+/**
+ * Хранилище компаний-клиентов
+ * Справочник компаний для выбора при создании заявок
+ * Поиск и автодополнение в формах
+ */
 import { defineStore } from 'pinia'
 import { useCache } from '@/utils/cashe.utils'
 import globalApiClient from '@/api/axios.config'
