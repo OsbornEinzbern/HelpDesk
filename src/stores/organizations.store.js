@@ -1,11 +1,4 @@
-/**
- * Хранилище компаний-клиентов
- * Справочник компаний для выбора при создании заявок
- * Поиск и автодополнение в формах
- */
-
 import { defineStore } from 'pinia'
-//import { organizationsApi } from '@/api/companies.api'
 import { useCache } from '@/utils/cashe.utils'
 import globalApiClient from '@/api/axios.config'
 
@@ -16,23 +9,22 @@ export const useOrganizationsStore = defineStore('organizations', {
     currentOrganization: null,
     pagination: null,
     cacheInstance: null,
-    lastParams: null
+    lastParams: null,
   }),
 
   actions: {
-    // Инициализация кэша (вызывается при первом использовании)
     initCache() {
       if (!this.cacheInstance) {
-        const { 
-          getCacheKey, 
-          isCacheValid, 
-          getFromCache, 
+        const {
+          getCacheKey,
+          isCacheValid,
+          getFromCache,
           saveToCache,
           invalidateCacheKey,
           clearCache,
-          cache
+          cache,
         } = useCache(5 * 60 * 1000)
-        
+
         this.cacheInstance = {
           getCacheKey,
           isCacheValid,
@@ -40,7 +32,7 @@ export const useOrganizationsStore = defineStore('organizations', {
           saveToCache,
           invalidateCacheKey,
           clearCache,
-          cache 
+          cache,
         }
       }
       return this.cacheInstance
@@ -55,18 +47,17 @@ export const useOrganizationsStore = defineStore('organizations', {
 
     async sendRequestLoadOrganizations(searchStr) {
       const requestBody = {
-        organization_search: searchStr
+        organization_search: searchStr,
       }
       console.log('📤 Загружаем опции для комбобокс организаций: ', requestBody)
       const response = await globalApiClient.post('/organizations/load_organizations', requestBody)
       console.log('📥 Ответ от сервера:', response)
-      return response  // Возвращаем полный response
+      return response
     },
 
-    // То же для объектов
     async sendRequestLoadObjects(searchStr) {
       const requestBody = {
-        object_search: searchStr
+        object_search: searchStr,
       }
       console.log('📤 Загружаем опции для комбобокс объектов: ', requestBody)
       const response = await globalApiClient.post('/objects/load_objects', requestBody)
@@ -76,38 +67,35 @@ export const useOrganizationsStore = defineStore('organizations', {
 
     async fetchOrganizations(params = {}) {
       this.loading = true
-      
-      // Получаем методы кэша
       const cache = this.initCache()
-
-      // Генерируем ключ для кэша
       const cacheKey = cache.getCacheKey('orgs', params)
-      
-      // Если параметры НЕ изменились и есть валидный кэш - используем его
+
       if (cache.isCacheValid(cacheKey)) {
         console.log('📦 Используем кэшированные данные для ключа: ', cacheKey)
         const cached = cache.getFromCache(cacheKey)
-        
-        // Восстанавливаем данные из кэша
+
         this.organizations = cached.data.data || []
         this.pagination = cached.pagination
-        
+
         this.loading = false
         return cached.response
       }
-      
+
       try {
-        // Формируем тело запроса
+        const roles = params.roles ?? params.types ?? []
+
         const requestBody = {
           organization_search: params.search || '',
-          type: params.types || (params.type ? [params.type] : []),
+          roles,
+          type: roles, // оставлено для совместимости, если backend где-то ещё ждёт старое имя
+          page: params.page || 1,
+          per_page: params.perPage || 20,
         }
-      
+
         console.log('📤 Отправка запроса /organizations/load_organizations:', requestBody)
         const response = await globalApiClient.post('/organizations/load_organizations', requestBody)
-        //const response = await organizationsApi.getOrganizations()
         console.log('📥 Ответ от сервера:', response)
-      
+
         if (response.data) {
           this.organizations = response.data.data || []
           this.pagination = {
@@ -123,15 +111,13 @@ export const useOrganizationsStore = defineStore('organizations', {
             per_page: response.data.per_page,
             prev_page_url: response.data.prev_page_url,
             to: response.data.to,
-            total: response.data.total
+            total: response.data.total,
           }
-          
-          // Сохраняем новые данные в кэш
-          cache.saveToCache(cacheKey, response.data, this.pagination, response)
 
-          // Сохраняем текущие параметры
+          cache.saveToCache(cacheKey, response.data, this.pagination, response)
           this.lastParams = { ...params }
         }
+
         return response
       } catch (error) {
         console.error('❌ Ошибка загрузки организаций:', error)
@@ -141,7 +127,42 @@ export const useOrganizationsStore = defineStore('organizations', {
       }
     },
 
-    // метод для очистки кэша по префиксу
+    async createOrganization(payload) {
+      try {
+        const response = await globalApiClient.post('/organizations/store', payload)
+        this.clearCache()
+        return response
+      } catch (error) {
+        console.error('❌ Ошибка создания организации:', error)
+        throw error
+      }
+    },
+
+    async updateOrganization(payload) {
+      try {
+        const response = await globalApiClient.post('/organizations/update', payload)
+        this.clearCache()
+        return response
+      } catch (error) {
+        console.error('❌ Ошибка обновления организации:', error)
+        throw error
+      }
+    },
+
+    async deleteOrganizations(organizations) {
+      try {
+        const payload = {
+          organizations: Array.isArray(organizations) ? organizations : [organizations],
+        }
+        const response = await globalApiClient.post('/organizations/destroy', payload)
+        this.clearCache()
+        return response
+      } catch (error) {
+        console.error('❌ Ошибка удаления организаций:', error)
+        throw error
+      }
+    },
+
     clearCacheByPrefix(prefix) {
       const cache = this.initCache()
       if (cache.cache?.value) {
@@ -151,23 +172,23 @@ export const useOrganizationsStore = defineStore('organizations', {
             keysToDelete.push(key)
           }
         })
-        keysToDelete.forEach(key => cache.cache.value.delete(key))
+        keysToDelete.forEach((key) => cache.cache.value.delete(key))
         if (keysToDelete.length > 0) {
           console.log(`🗑️ Удалено ${keysToDelete.length} ключей с префиксом ${prefix}:`, keysToDelete)
         }
       }
     },
-    
+
     invalidateCacheKey(params) {
       const cache = this.initCache()
       const cacheKey = cache.getCacheKey('orgs', params)
       cache.invalidateCacheKey(cacheKey)
     },
-    
+
     clearCache() {
       const cache = this.initCache()
       cache.clearCache()
       this.lastParams = null
-    }
-  }
+    },
+  },
 })

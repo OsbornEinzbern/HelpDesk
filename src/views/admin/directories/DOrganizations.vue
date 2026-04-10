@@ -151,7 +151,9 @@ const loadOrganizations = async () => {
   try {
     const params = {
       search: searchQuery.value,
-      types: selectedTypes.value,
+      roles: selectedTypes.value, // старое имя оставлено, по смыслу это роли
+      page: paginationData.value.current_page,
+      perPage: paginationData.value.per_page,
     }
 
     console.log('Загрузка организаций с параметрами:', params)
