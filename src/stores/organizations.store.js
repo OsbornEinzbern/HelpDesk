@@ -3,6 +3,7 @@
  * Справочник компаний для выбора при создании заявок
  * Поиск и автодополнение в формах
  */
+
 import { defineStore } from 'pinia'
 import { useCache } from '@/utils/cashe.utils'
 import globalApiClient from '@/api/axios.config'
@@ -60,9 +61,10 @@ export const useOrganizationsStore = defineStore('organizations', {
       return response
     },
 
-    async sendRequestLoadObjects(searchStr) {
+    async sendRequestLoadObjects(object_search, organization) {
       const requestBody = {
-        object_search: searchStr,
+        object_search: object_search,
+        organizations: [organization]
       }
       console.log('📤 Загружаем опции для комбобокс объектов: ', requestBody)
       const response = await globalApiClient.post('/objects/load_objects', requestBody)
@@ -73,7 +75,7 @@ export const useOrganizationsStore = defineStore('organizations', {
     async fetchOrganizations(params = {}) {
       this.loading = true
       const cache = this.initCache()
-      const cacheKey = cache.getCacheKey('orgs', params)
+      const cacheKey = this.generateCacheKey(params)
 
       if (cache.isCacheValid(cacheKey)) {
         console.log('📦 Используем кэшированные данные для ключа: ', cacheKey)
@@ -91,14 +93,19 @@ export const useOrganizationsStore = defineStore('organizations', {
 
         const requestBody = {
           organization_search: params.search || '',
-          roles,
-          type: roles, // оставлено для совместимости, если backend где-то ещё ждёт старое имя
-          page: params.page || 1,
-          per_page: params.perPage || 20,
+          roles
         }
 
-        console.log('📤 Отправка запроса /organizations/load_organizations:', requestBody)
-        const response = await globalApiClient.post('/organizations/load_organizations', requestBody)
+        let route
+        if(params.url){
+          route = params.url
+        }
+        else{
+          route = '/organizations/load_organizations'
+        }
+      
+        console.log('📤 Отправка запроса: ', route, ' ', requestBody)
+        const response = await globalApiClient.post(route, requestBody)
         console.log('📥 Ответ от сервера:', response)
 
         if (response.data) {
@@ -184,6 +191,19 @@ export const useOrganizationsStore = defineStore('organizations', {
       }
     },
 
+    generateCacheKey(params) {
+      const search = params.search || ''
+      const roles = params.roles || []
+      let page = 1
+      if(params.url){
+        const pageParam = params.url.split('?')[1];
+        page = pageParam.split('=')[1];
+      }
+      // Сортируем ID организаций для стабильности ключа
+      const rolesKey = [...roles].sort().join(',')
+      return `orgs_search_${search}_roles_${rolesKey}_page_${page}`
+    },
+
     invalidateCacheKey(params) {
       const cache = this.initCache()
       const cacheKey = cache.getCacheKey('orgs', params)
@@ -197,3 +217,4 @@ export const useOrganizationsStore = defineStore('organizations', {
     },
   },
 })
+

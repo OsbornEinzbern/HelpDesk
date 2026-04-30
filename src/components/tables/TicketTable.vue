@@ -11,26 +11,29 @@
     <UIIcons ref="uiIcons" />
     <UITable
       :columns="columns"
-      :data="formattedTickets"
+      :data="objects"
       :grid-template-columns="gridTemplateColumns"
       :loading="loading"
-      :sortable="true"
-      :pagination="true"
-      :page-size="pagination.per_page"
-      :current-page="pagination.current_page"
-      :show-page-size-selector="false"
-      :show-page-jump="false"
-      :total-items="pagination.total"
-      :last-page="pagination.last_page"
-      :from="pagination.from"
-      :to="pagination.to"
-      :links="pagination.links"
-      :prev-page-url="pagination.prev_page_url"
-      :next-page-url="pagination.next_page_url"
+      :sortable="false"
+      :pagination-data="pagination"
       @rowClick="handleRowClick"
       @sortChange="handleSortChange"
       @pageChange="handlePageChange"
-    >
+    >   
+      
+      <!-- Шаблон для чекбокса выбора -->
+    <template #cell-select="{ row }">
+      <div class="checkbox-cell" @click.stop>
+        <UIInput
+          v-if="canSelectTicket()"
+          type="checkbox"
+          :model-value="isSelected(row.id)"
+          @update:model-value="(checked) => toggleSelection(row.id, checked)"
+          :disabled="false"
+        />
+      </div>
+    </template>
+
       <!-- Кастомный слот для колонки "Приоритет" -->
       <template #cell-priority="{ value }">
         <div :class="`priority-indicator priority-${value}`" :title="getPriorityLabel(value)">
@@ -126,7 +129,6 @@ import {
   truncateText,
   getPriorityLabel,
   getStatusLabel,
-  formatTicketsForTable
 } from '@/utils/ticket.utils'
 import { Icon } from '@iconify/vue'
 import UIIcons from '@/components/common/UI/UIIcons.vue'
@@ -136,54 +138,99 @@ const uiIcons = ref()
 const props = defineProps({
   tickets: {
     type: Array,
-    default: () => [],
+    default: () => []
   },
   loading: {
     type: Boolean,
-    default: false,
+    default: false
   },
-  pagination: {
-    type: Object,
-    default: () => ({
-      current_page: 1,
-      last_page: 1,
-      per_page: 20,
-      total: 0,
-      links: [],
-      from: 0,
-      to: 0
-    })
+  pagination: { 
+    type: Object, 
+    default: () => ({}) 
   },
+  selectedTicketIds: {
+    type: Array,
+    default: () => []
+  }
 })
 
-const emit = defineEmits(['rowClick', 'pageChange', 'sortChange', 'edit', 'delete'])
+const emit = defineEmits(['rowClick', 'pageChange', 'sortChange', 'openProfile', 'update:selectedTicketIds'])
+
+const isSelected = (orgId) => {
+  return props.selectedTicketIds.includes(orgId)
+}
+
+// Переключение выбора пользователя
+const toggleSelection = (orgId, isChecked) => {
+  let newSelection = [...props.selectedTicketIds]
+  
+  if (isChecked) {
+    if (!newSelection.includes(orgId)) {
+      newSelection.push(orgId)
+    }
+  } else {
+    newSelection = newSelection.filter(id => id !== orgId)
+  }
+  emit('update:selectedTicketIds', newSelection)
+}
+
+// Grid шаблон
+const gridTemplateColumns = computed(() => {
+  if(canSelectAnyTicket.value){
+    return '1fr 1fr 4fr 10fr 7fr 6fr 7fr 5fr 5fr 2fr'
+  } else {
+    return '1fr 4fr 10fr 7fr 6fr 7fr 5fr 5fr 2fr'
+  }
+})
+
+// Колонки таблицы - статичны и зависят только от прав пользователя
+const columns = computed(() => {
+  if (canSelectAnyTicket.value) {
+    return [
+      { key: 'select', title: '', align: 'center' },
+      { key: 'priority', title: '', align: 'left' },
+      { key: 'number', title: '№ заявки', align: 'left' },
+      { key: 'subject', title: 'Тема', align: 'left' },
+      { key: 'clientName', title: 'Клиент', align: 'left' },
+      { key: 'status', title: 'Статус', align: 'center' },
+      { key: 'executorName', title: 'Исполнитель', align: 'left' },
+      { key: 'createdAt', title: 'Время создания', align: 'left' },
+      { key: 'deadline', title: 'Срок', align: 'left' },
+      { key: 'edit', title: '',  align: 'left' },
+    ]
+  } else {
+    return [
+      { key: 'priority', title: '', align: 'left' },
+      { key: 'number', title: '№ заявки', align: 'left' },
+      { key: 'subject', title: 'Тема', align: 'left' },
+      { key: 'clientName', title: 'Клиент', align: 'left' },
+      { key: 'status', title: 'Статус', align: 'center' },
+      { key: 'executorName', title: 'Исполнитель', align: 'left' },
+      { key: 'createdAt', title: 'Время создания', align: 'left' },
+      { key: 'deadline', title: 'Срок', align: 'left' },
+      { key: 'edit', title: '',  align: 'left' },
+    ]
+  }
+})
+
+// Проверка, может ли текущий пользователь удалять организации
+const canSelectAnyTicket = computed(() => {
+  return getUserRole() === 'admin'
+})
+
+// Проверка, можно ли выбрать организацию
+const canSelectTicket = () => {
+  // Нельзя выбрать: 
+  // 1. Если текущий пользователь не админ
+  if (!canSelectAnyTicket.value) return false
+  return true
+}
+
 
 // Локальное состояние для модального окна
 const showModal = ref(false)
 const selectedTicket = ref(null)
 const userRole = getUserRole()
-
-// Преобразуем данные для таблицы с использованием утилит
-const formattedTickets = computed(() => {
-  return formatTicketsForTable(props.tickets)
-})
-
-const columns = [
-  { key: 'priority', title: '', align: 'left' },
-  { key: 'number', title: '№ заявки', align: 'left' },
-  { key: 'subject', title: 'Тема', align: 'left' },
-  { key: 'clientName', title: 'Клиент', align: 'left' },
-  { key: 'status', title: 'Статус', align: 'center' },
-  { key: 'executorName', title: 'Исполнитель', align: 'left' },
-  { key: 'createdAt', title: 'Время создания', align: 'left' },
-  { key: 'deadline', title: 'Срок', align: 'left' },
-  { key: 'edit', title: '',  align: 'left' },
-]
-
-// Grid шаблон
-const gridTemplateColumns = computed(() => {
-  return '1fr 4fr 10fr 7fr 6fr 7fr 5fr 5fr 2fr'
-})
 
 // Добавляем режим
 const currentMode = ref('view') // 'view' или 'edit'
@@ -213,27 +260,6 @@ const handleEdit = (row) => {
   }
 }
 
-// Обработчик клика по строке таблицы
-const handleRowClick = (row) => {
-  selectedTicket.value = {
-    ...row,
-    type: row.type,
-    contactPerson: row.contactPerson,
-    phone: row.phone,
-    email: row.email,
-    description: row.description,
-    workStart: row.workStart,
-    workEnd: row.workEnd,
-    workCost: row.workCost,
-    requestMethod: row.requestMethod,
-    distance: row.distance,
-    materials: row.materials,
-  }
-  currentMode.value = 'view' // Устанавливаем режим просмотра
-  showModal.value = true
-  emit('rowClick', row)
-}
-
 // Обработчик сохранения
 const handleSaveTicket = (updatedTicket) => {
   // Здесь будет логика сохранения изменений
@@ -255,12 +281,20 @@ const handleEditTicket = (ticket) => {
   emit('edit', ticket)
 }
 
-const handleSortChange = (sortOptions) => {
-  emit('sortChange', sortOptions)
+// Обработчик клика по строке
+const handleRowClick = (row) => {
+  emit('rowClick', row)
+  emit('openProfile', row)
 }
 
-const handlePageChange = (page) => {
-  emit('pageChange', page)
+// Обработчик изменения страницы
+const handlePageChange = (url) => {
+  emit('pageChange', url)
+}
+
+// Обработчик сортировки
+const handleSortChange = (sortOptions) => {
+  emit('sortChange', sortOptions)
 }
 </script>
 

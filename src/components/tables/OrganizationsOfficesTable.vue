@@ -656,7 +656,6 @@ const removeContact = async (office, contactIdx) => {
   height: 34px;
   display: flex; /* Добавлено для центрирования */
   align-items: center;
-  justify-content: center;
   width: 100%; /* На всю ширину */
 }
 

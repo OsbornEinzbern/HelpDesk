@@ -84,9 +84,27 @@
               </RouterLink>
             </li>
             <li>
+              <RouterLink to="/admin/directories/objects" class="nav-link">
+                <Icon :icon="uiIcons?.icons.countOffices" width="20" height="20" class="nav-icon-small" />
+                Объекты
+              </RouterLink>
+            </li>
+            <li>
               <RouterLink to="/admin/directories/users" class="nav-link">
                 <Icon :icon="uiIcons?.icons.users" width="20" height="20" class="nav-icon-small" />
                 Пользователи
+              </RouterLink>
+            </li>
+            <li>
+              <RouterLink to="/admin/directories/supportGroups" class="nav-link">
+                <Icon :icon="uiIcons?.icons.supportGroup" width="20" height="20" class="nav-icon-small" />
+                Группы поддержки
+              </RouterLink>
+            </li>
+            <li>
+              <RouterLink to="/admin/directories/businessProcesses" class="nav-link">
+                <Icon :icon="uiIcons?.icons.businessProcess" width="20" height="20" class="nav-icon-small" />
+                Бизнес-процессы
               </RouterLink>
             </li>
           </ul>
@@ -180,9 +198,27 @@
               </RouterLink>
             </li>
             <li>
+              <RouterLink to="/dispatcher/directories/objects" class="nav-link">
+                <Icon :icon="uiIcons?.icons.countOffices" width="20" height="20" class="nav-icon-small" />
+                Объекты
+              </RouterLink>
+            </li>
+            <li>
               <RouterLink to="/dispatcher/directories/users" class="nav-link">
                 <Icon :icon="uiIcons?.icons.users" width="20" height="20" class="nav-icon-small" />
                 Пользователи
+              </RouterLink>
+            </li>
+            <li>
+              <RouterLink to="/dispatcher/directories/supportGroups" class="nav-link">
+                <Icon :icon="uiIcons?.icons.users" width="20" height="20" class="nav-icon-small" />
+                Группы поддержки
+              </RouterLink>
+            </li>
+            <li>
+              <RouterLink to="/dispatcher/directories/businessProcesses" class="nav-link">
+                <Icon :icon="uiIcons?.icons.businessProcess" width="20" height="20" class="nav-icon-small" />
+                Бизнес-процессы
               </RouterLink>
             </li>
           </ul>
@@ -521,7 +557,7 @@ onUnmounted(() => {
   width: 250px;
   height: calc(100vh - 54px);
   background: #031432;
-  transform: translateX(-100%);
+  transform: translateX(-101%);
   transition: transform 0.3s ease;
   z-index: 1001;
   overflow-y: auto;

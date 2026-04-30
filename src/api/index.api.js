@@ -3,7 +3,6 @@
  * Все AJAX запросы должны идти через этот файл
  */
 
-export { ticketsApi } from './tickets.api'
 export { authApi } from './auth.api'
 
 /*

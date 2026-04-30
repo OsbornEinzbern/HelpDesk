@@ -4,18 +4,18 @@
 -->
 
 <template>
-  <div class="ui-pagination">
+  <div class="ui-pagination" :class="{ 'no-border': noBorder, 'compact': compact }">
     <!-- Информация о записях -->
     <div class="pagination-info" v-if="showInfo">
-      {{ from }} - {{ to }} из {{ total }}
+      {{ paginationData.from }} - {{ paginationData.to }} из {{ paginationData.total }}
     </div>
 
     <div class="pagination-controls">
       <!-- Кнопка "Назад" (Previous) -->
       <button
         class="pagination-btn prev-btn"
-        :disabled="!prevPageUrl"
-        @click="handlePageChange(getPageNumberFromUrl(prevPageUrl))"
+        :disabled="!paginationData.prev_page_url"
+        @click="handlePageChange(paginationData.prev_page_url)"
         :title="prevButtonTitle"
       >
         {{ prevButtonText }}
@@ -31,12 +31,9 @@
           <button
             v-else
             class="page-btn"
-            :class="{ 
-              active: link.active,
-              disabled: !link.url
-            }"
+            :class="{ active: link.active }"
             :disabled="!link.url"
-            @click="handlePageChange(getPageNumberFromUrl(link.url))"
+            @click="handlePageChange(link.url)"
             v-html="link.label"
           ></button>
         </template>
@@ -45,8 +42,8 @@
       <!-- Кнопка "Вперед" (Next) -->
       <button
         class="pagination-btn next-btn"
-        :disabled="!nextPageUrl"
-        @click="handlePageChange(getPageNumberFromUrl(nextPageUrl))"
+        :disabled="!paginationData.next_page_url"
+        @click="handlePageChange(paginationData.next_page_url)"
         :title="nextButtonTitle"
       >
         {{ nextButtonText }}
@@ -57,7 +54,7 @@
     <div class="page-size-selector" v-if="showPageSizeSelector">
       <span class="selector-label">{{ pageSizeLabel }}</span>
       <select 
-        :value="pageSize" 
+        :value="paginationData.per_page" 
         @change="handlePageSizeChange"
         class="page-size-select"
         :aria-label="pageSizeLabel"
@@ -76,7 +73,7 @@
         v-model.number="jumpPage"
         @keyup.enter="handleJumpPage"
         :min="1"
-        :max="lastPage"
+        :max="paginationData.last_page"
         class="jump-input"
         aria-label="Номер страницы для перехода"
       />
@@ -88,160 +85,75 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 
 const props = defineProps({
-  // Laravel pagination data
-  currentPage: {
-    type: Number,
-    default: 1
+  paginationData: {
+    type: Object,
+    required: true,
+    default: () => ({
+      current_page: 1,
+      last_page: 1,
+      per_page: 20,
+      total: 0,
+      links: [],
+      from: 0,
+      to: 0,
+      prev_page_url: null,
+      next_page_url: null
+    })
   },
-  lastPage: {
-    type: Number,
-    default: 1
-  },
-  perPage: {
-    type: Number,
-    default: 20
-  },
-  total: {
-    type: Number,
-    default: 0
-  },
-  from: {
-    type: Number,
-    default: 0
-  },
-  to: {
-    type: Number,
-    default: 0
-  },
-  links: {
-    type: Array,
-    default: () => []
-  },
-  
-  // URL для навигации (для удобства)
-  prevPageUrl: {
-    type: String,
-    default: null
-  },
-  nextPageUrl: {
-    type: String,
-    default: null
-  },
-  
-  // Настройки отображения
-  maxVisiblePages: {
-    type: Number,
-    default: 5
-  },
-  compact: {
-    type: Boolean,
-    default: false
-  },
-  noBorder: {
-    type: Boolean,
-    default: false
-  },
-  showInfo: {
-    type: Boolean,
-    default: true
-  },
-  showPageSizeSelector: {
-    type: Boolean,
-    default: false
-  },
-  showPageJump: {
-    type: Boolean,
-    default: false
-  },
-  
-  // Опции для селектора размера страницы
-  pageSizeOptions: {
-    type: Array,
-    default: () => [10, 20, 50, 100]
-  },
-  
-  // Тексты
-  prevButtonText: {
-    type: String,
-    default: '←'
-  },
-  nextButtonText: {
-    type: String,
-    default: '→'
-  },
-  prevButtonTitle: {
-    type: String,
-    default: 'Предыдущая страница'
-  },
-  nextButtonTitle: {
-    type: String,
-    default: 'Следующая страница'
-  },
-  pageSizeLabel: {
-    type: String,
-    default: 'Показать:'
-  },
+  showInfo: { type: Boolean, default: true },
+  showPageSizeSelector: { type: Boolean, default: false },
+  showPageJump: { type: Boolean, default: false },
+  compact: { type: Boolean, default: false },
+  noBorder: { type: Boolean, default: false },
+  prevButtonText: { type: String, default: '←' },
+  nextButtonText: { type: String, default: '→' },
+  prevButtonTitle: { type: String, default: 'Предыдущая страница' },
+  nextButtonTitle: { type: String, default: 'Следующая страница' },
+  pageSizeLabel: { type: String, default: 'Показать:' },
+  pageSizeOptions: { type: Array, default: () => [10, 20, 50, 100] }
 })
 
 const emit = defineEmits(['pageChange', 'pageSizeChange'])
 
-// Локальные состояния
-const jumpPage = ref(props.currentPage)
+const jumpPage = ref(props.paginationData.current_page)
 
 // Обрабатываем links для правильного отображения
 const processedLinks = computed(() => {
-  console.log(props.links)
-  if (!props.links || props.links.length === 0) {
+  if (!props.paginationData.links || props.paginationData.links.length === 0) {
     return []
   }
-  
-  // Фильтруем ссылки, убираем предыдущую и следующую если они есть в массиве
-  // и оставляем только ссылки на страницы и разделители
-  return props.links.filter(link => {
+  return props.paginationData.links.filter(link => {
     const label = link.label.toLowerCase()
     return !label.includes('previous') && !label.includes('next')
   })
 })
 
-// Извлечение номера страницы из URL
-const getPageNumberFromUrl = (url) => {
-  if (!url) return 1
-  const match = url.match(/[?&]page=(\d+)/)
-  return match ? parseInt(match[1]) : 1
-}
-
-// Обработчики событий
-const handlePageChange = (page) => {
-  if (page && page >= 1 && page <= props.lastPage && page !== props.currentPage) {
-    emit('pageChange', page)
-    jumpPage.value = page
+const handlePageChange = (url) => {
+  if (url) {
+    emit('pageChange', url)
+    // Обновляем jumpPage для индикации
+    const match = url.match(/[?&]page=(\d+)/)
+    if (match) {
+      jumpPage.value = parseInt(match[1])
+    }
   }
 }
 
+// Обработчик изменения размера страницы
 const handlePageSizeChange = (event) => {
   const newSize = parseInt(event.target.value)
   emit('pageSizeChange', newSize)
-  // При изменении размера страницы сбрасываем на первую
   emit('pageChange', 1)
 }
 
+// Обработчик прыжка на страницу
 const handleJumpPage = () => {
-  const page = Math.max(1, Math.min(jumpPage.value, props.lastPage))
+  const page = Math.max(1, Math.min(jumpPage.value, props.paginationData.last_page))
   handlePageChange(page)
 }
-
-// Следим за изменением currentPage
-watch(() => props.currentPage, (newPage) => {
-  jumpPage.value = newPage
-})
-
-// Сбрасываем прыжок при изменении lastPage
-watch(() => props.lastPage, () => {
-  jumpPage.value = 1
-})
 </script>
 
 <style scoped>
@@ -249,6 +161,8 @@ watch(() => props.lastPage, () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
   padding: 10px 24px;
   background-color: #ffffff;
   border-top: 1px solid #e0e0e0;
@@ -283,7 +197,7 @@ watch(() => props.lastPage, () => {
   color: #495057;
   transition: all 0.2s;
   user-select: none;
-  padding: 0 12px;
+  padding: 0 6px;
 }
 
 .pagination-btn:hover:not(:disabled) {
@@ -297,7 +211,7 @@ watch(() => props.lastPage, () => {
 }
 
 .prev-btn, .next-btn {
-  min-width: 40px;
+  min-width: 32px;
 }
 
 .page-numbers {

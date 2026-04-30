@@ -37,7 +37,25 @@ const icons = {
   users: 'mdi:account-group-outline',
   generalAnalytics: 'mdi:chart-bar',
   reports: 'mdi:file-document-outline',
-  
+  supportGroup: 'mdi:account-wrench-outline',
+  businessProcess: 'mdi:transit-connection-variant',
+
+  // Объекты
+  objectSearch: 'mdi:home-search-outline',
+  objectCreate: 'mdi:house-add-outline',
+  objectLoadEmpty: 'mdi:home-off-outline',
+  countOffices: 'mdi:office-building-location-outline',
+
+  // Группы поддержки
+  supportGroupCreate: 'mdi:account-multiple-add-outline',
+
+  // Бизнес-процессы
+  processSearch: 'mdi:text-box-search-outline',
+
+  // Заявки
+  ticketsLoadEmpty: 'mdi:email-off-outline',
+  ticketSearch: 'mdi:email-search-outline',
+
   // UI элементы
   menuSidebar: 'mdi:menu-open',
   usersLoadEmpty: 'mdi:account-off-outline',
@@ -46,11 +64,8 @@ const icons = {
   organizationsLoadEmpty: 'mdi:briefcase-variant-off-outline',
   organizationSearch: 'mdi:briefcase-search-outline',
   organizationCreate: 'mdi:briefcase-plus-outline',
-  ticketsLoadEmpty: 'mdi:email-off-outline',
-  ticketSearch: 'mdi:email-search-outline',
   filter: 'mdi-filter-outline',
   notificationsBell: 'mdi:notifications',
-  countOffices: 'mdi:office-building-location-outline',
   save: 'mdi:checkbox-marked-outline',
   changeHistory: 'mdi:history',
   warning: 'mdi:warning-circle-outline',
@@ -58,6 +73,7 @@ const icons = {
   eyeOff: 'mdi:eye-off-outline',
   success: 'mdi:success-circle-outline',
   editPassword: 'mdi:shield-edit-outline',
+  info: 'mdi:information-variant-circle-outline',
 
   // Кнопки профилей
   engineerProfile: 'mdi:account-wrench',
@@ -68,11 +84,12 @@ const icons = {
   ticketEdit: 'mdi:email-edit-outline',
   close: 'mdi:close-circle-outline',
   edit: 'mdi:pencil',
+  editOutline: 'mdi:pencil-outline',
   delete: 'mdi:delete',
   deleteOutline: 'mdi:delete-outline',
   reload: 'mdi:reload',
   add: 'mdi:plus',
-  search: 'mdi:magnify',
+  search: 'mdi:search',
   download: 'mdi:download',
   upload: 'mdi:upload',
   refresh: 'mdi:refresh',

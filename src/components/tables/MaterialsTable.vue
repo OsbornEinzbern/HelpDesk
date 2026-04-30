@@ -232,7 +232,6 @@ const calculateTotalMaterials = () => {
 .materials-table {
   border: 1px solid #b6b6b6;
   border-radius: 10px;
-  overflow: hidden;
   background: white;
   box-sizing: border-box;
   overflow: auto;

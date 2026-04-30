@@ -5,11 +5,11 @@
 
 <template>
   <UIIcons ref="uiIcons" />
-  <div class="organizations-table-wrapper">
+  <div class="objects-table-wrapper">
     <!-- Общий компонент таблицы -->
     <UITable
       :columns="columns"
-      :data="organizations"
+      :data="objects"
       :grid-template-columns="gridTemplateColumns"
       :loading="loading"
       :sortable="false"
@@ -23,7 +23,7 @@
     <template #cell-select="{ row }">
       <div class="checkbox-cell" @click.stop>
         <UIInput
-          v-if="canSelectOrganization(row)"
+          v-if="canSelectObject()"
           type="checkbox"
           :model-value="isSelected(row.id)"
           @update:model-value="(checked) => toggleSelection(row.id, checked)"
@@ -31,32 +31,34 @@
         />
       </div>
     </template>
-
-      <template #cell-organization="{ row }">
-        <div class="organization-cell" :title="row.name">
-          <div class="org-name">{{ truncateText(row.name, 40) }}</div>
+    
+      <template #cell-object="{ row }">
+        <div class="object-cell" :title="row.name">
+          <div class="object-name">{{ truncateText(row.name, 35) }}</div>
         </div>
       </template>
 
-      <template #cell-type_org="{ row }">
-        <div class="org-types-cell">
-          <span 
-            v-for="role in getOrganizationRoles(row)" 
-            :key="role.id"
-            class="org-type-badge" 
-            :class="getOrgTypeClass(role.id)"
-          >
-          {{ role.name }}
-          </span>
-          <span v-if="!getOrganizationRoles(row).length" class="org-type-badge org-default">
-          —
-          </span>
-        </div>
+      <template #cell-organization="{ row }">
+        <span class="object-cell" :title="row.organization.name">
+          <div class="object-name">{{ truncateText(row.organization.name, 35) }}</div>
+        </span>
       </template>
 
       <template #cell-address="{ row }">
         <div class="address-cell" :title="row.contact.address">
-          <div class="org-name">{{ truncateText(row.contact?.address, 40) || 'Не указан' }}</div>
+          <div class="object-name">{{ truncateText(row.contact?.address, 45) || 'Не указан' }}</div>
+        </div>
+      </template>
+
+      <template #cell-building="{ row }">
+        <div class="object-cell" :title="row.contact.building">
+          <div class="object-name">{{ truncateText(row.contact?.building, 20) || 'Не указан' }}</div>
+        </div>
+      </template>
+
+      <template #cell-office="{ row }">
+        <div class="object-cell" :title="row.contact.office">
+          <div class="object-name">{{ truncateText(row.contact?.office, 20) || 'Не указано'}}</div>
         </div>
       </template>
 
@@ -66,32 +68,22 @@
         </div>
       </template>
 
-      <template #cell-objects_contacts="{ row }">
-        <div class="stats-cell">
-          <div class="stat-item" :title="'Объекты'">
-            <Icon :icon="uiIcons?.icons.countOffices" width="22" height="22" />
-            <span>{{ getObjectCount(row) }}</span>
-            <!--<span>{{ row.objects?.length || 0 }}</span>-->
-          </div>
-        </div>
-      </template>
-
       <template #loading>
         <div class="custom-loading">
           <div class="spinner"></div>
-          <span>Загрузка организаций...</span>
+          <span>Загрузка объектов...</span>
         </div>
       </template>
 
       <template #empty>
         <div class="custom-empty">
           <Icon 
-            :icon="uiIcons?.icons.organizationsLoadEmpty"
+            :icon="uiIcons?.icons.objectLoadEmpty"
             class="empty-icon"
             width="80"
             height="80"
           />
-          <h3>Организации не найдены</h3>
+          <h3>Объекты не найдены</h3>
           <p>Попробуйте изменить критерии поиска или фильтры</p>
         </div>
       </template>
@@ -110,7 +102,7 @@ import { getUserRole } from '@/utils/auth.utils'
 const uiIcons = ref()
 
 const props = defineProps({
-  organizations: {
+  objects: {
     type: Array,
     default: () => []
   },
@@ -118,34 +110,25 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
-  pagination: {
-    type: Object,
-    default: () => ({
-      current_page: 1,
-      last_page: 1,
-      per_page: 20,
-      total: 0,
-      links: [],
-      from: 0,
-      to: 0
-    })
+  pagination: { 
+    type: Object, 
+    default: () => ({}) 
   },
-  selectedOrgIds: {
+  selectedObjectIds: {
     type: Array,
     default: () => []
   }
 })
 
-const emit = defineEmits(['rowClick', 'pageChange', 'sortChange', 'openProfile', 'update:selectedOrgIds'])
+const emit = defineEmits(['rowClick', 'pageChange', 'sortChange', 'openProfile', 'update:selectedObjectIds'])
 
-// Проверка выбран ли пользователь
 const isSelected = (orgId) => {
-  return props.selectedOrgIds.includes(orgId)
+  return props.selectedObjectIds.includes(orgId)
 }
 
 // Переключение выбора пользователя
 const toggleSelection = (orgId, isChecked) => {
-  let newSelection = [...props.selectedOrgIds]
+  let newSelection = [...props.selectedObjectIds]
   
   if (isChecked) {
     if (!newSelection.includes(orgId)) {
@@ -154,53 +137,52 @@ const toggleSelection = (orgId, isChecked) => {
   } else {
     newSelection = newSelection.filter(id => id !== orgId)
   }
-  
-  emit('update:selectedOrgIds', newSelection)
+  emit('update:selectedObjectIds', newSelection)
 }
 
 // Grid шаблон
 const gridTemplateColumns = computed(() => {
-  if(canSelectAnyOrganization.value){
-    return '0.7fr 5fr 5.5fr 7fr 3fr 1fr'
+  if(canSelectAnyObject.value){
+    return '0.9fr 5fr 5fr 10fr 3fr 3fr 3fr'
   } else {
-    return '5fr 5.5fr 7fr 3fr 1fr'
+    return '5fr 5fr 10fr 3fr 3fr 3fr'
   }
 })
 
 // Колонки таблицы - статичны и зависят только от прав пользователя
 const columns = computed(() => {
-  if (canSelectAnyOrganization.value) {
+  if (canSelectAnyObject.value) {
     return [
       { key: 'select', title: '', align: 'center' },
+      { key: 'object', title: 'Объект', align: 'left' },
       { key: 'organization', title: 'Организация', align: 'left' },
-      { key: 'type_org', title: 'Типы', align: 'center' }, 
-      { key: 'address', title: 'Адрес главного офиса', align: 'left' },
-      { key: 'phone', title: 'Телефон', align: 'left' }, 
-      { key: 'objects_contacts', title: '', align: 'center' },
+      { key: 'address', title: 'Адрес', align: 'left' },
+      { key: 'building', title: 'Дом', align: 'left' },
+      { key: 'office', title: 'Помещение', align: 'left' },
+      { key: 'phone', title: 'Телефон', align: 'left' },
     ]
   } else {
     return [
+      { key: 'object', title: 'Объект', align: 'left' },
       { key: 'organization', title: 'Организация', align: 'left' },
-      { key: 'type_org', title: 'Типы', align: 'center' },
-      { key: 'address', title: 'Адрес главного офиса', align: 'left' },
-      { key: 'phone', title: 'Телефон', align: 'left' }, 
-      { key: 'objects_contacts', title: '', align: 'center' },
+      { key: 'address', title: 'Адрес', align: 'left' },
+      { key: 'building', title: 'Дом', align: 'left' },
+      { key: 'office', title: 'Помещение', align: 'left' },
+      { key: 'phone', title: 'Телефон', align: 'left' },
     ]
   }
 })
 
 // Проверка, может ли текущий пользователь удалять организации
-const canSelectAnyOrganization = computed(() => {
+const canSelectAnyObject = computed(() => {
   return getUserRole() === 'admin'
 })
 
 // Проверка, можно ли выбрать организацию
-const canSelectOrganization = (row) => {
+const canSelectObject = () => {
   // Нельзя выбрать: 
   // 1. Если текущий пользователь не админ
-  // 2. Организацию с ID = 1 (Основная организация)
-  if (!canSelectAnyOrganization.value) return false
-  if (row.id === 1) return false
+  if (!canSelectAnyObject.value) return false
   return true
 }
 
@@ -226,82 +208,28 @@ const truncateText = (text, maxLength) => {
   if (text.length <= maxLength) return text
   return text.substring(0, maxLength) + '...'
 }
-
-// Получение главного офиса
-const getMainOffice = (organization) => {
-  if (!organization.objects || !organization.objects.length) return null
-  return organization.objects.find(obj => obj.is_main === true) || organization.objects[0]
-}
-
-// Типы организаций по ID роли
-const getOrgTypeClass = (roleId) => {
-  switch (Number(roleId)) {
-    case 1:
-      return 'org-main'
-    case 2:
-      return 'org-contractor'
-    case 3:
-      return 'org-subcontractor'
-    case 4:
-      return 'org-customer'
-    default:
-      return 'org-default'
-  }
-}
-
-const getOrgTypeLabel = (roleId) => {
-  switch (Number(roleId)) {
-    case 1:
-      return 'Основная организация'
-    case 2:
-      return 'Подрядчик'
-    case 3:
-      return 'Субподрядчик'
-    case 4:
-      return 'Заказчик'
-    default:
-      return '—'
-  }
-}
-
-// Получение ролей организации (массив объектов с id и name)
-const getOrganizationRoles = (organization) => {
-  if (!organization.roles) return []
-  if (Array.isArray(organization.roles)) {
-    return organization.roles
-  }
-  return []
-}
-
-const getObjectCount = (row) => {
-  let count = row.objects.length
-  if(row.contact.address){
-    count = row.objects.length + 1
-  }
-  return count
-}
 </script>
 
 <style scoped>
-.organizations-table-wrapper {
+.objects-table-wrapper {
   height: 100%;
   overflow: auto;
   scrollbar-width: thin;
   scrollbar-color: #9c9c9c #eaeaea;
 }
 
-.organizations-table-wrapper :deep(.ui-table) {
+.objects-table-wrapper :deep(.ui-table) {
   flex: 1;
   overflow: auto;
 }
 
 /* Ячейка организации */
-.organization-cell {
+.object-cell {
   display: flex;
   flex-direction: column;
 }
 
-.org-name {
+.object-name {
   font-weight: 500;
   color: #1d1d1d;
   white-space: nowrap;
@@ -346,23 +274,15 @@ const getObjectCount = (row) => {
   color: #757575;
 }
 
-.org-types-cell {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  justify-content: center;
-  align-items: center;
-}
-
 /* Бейджи типов организаций (Заказчик/Подрядчик/Наша компания) */
-.org-type-badge {
+.object-type-badge {
   display: inline-block;
   padding: 4px 8px;
   border-radius: 12px;
   font-size: 12px;
   font-weight: 300;
   text-align: center;
-  min-width: 90px;
+  min-width: 110px;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -384,8 +304,8 @@ const getObjectCount = (row) => {
   color: white;
 }
 
-.org-main {
-  background-color: #15109f;
+.org-our {
+  background-color: #1914b0;
   color: white;
 }
 

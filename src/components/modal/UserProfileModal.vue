@@ -5,20 +5,35 @@
     <SuccessNotification ref="successUserModal" />
     <div class="profile-modal" aria-modal="true" :aria-label="modalTitle" ref="modalRoot">
       <header class="modal-header">
-        <h2 class="modal-title">{{ modalTitle + ' - ' + modalMainUser }}</h2>
+        <h2 class="modal-title">{{ modalTitle + modalMainUser }}</h2>
         <div class="header-right">
           <template v-if="isEditing && mode !== 'create'">
-            <button class="save-btn" @click="onSave" title="Сохранить изменения">
+            <button 
+              v-if="hasFormChanges" 
+              class="save-btn"
+              :class="{ 'save-btn-active': isFormValid }" 
+              @click="onSave" 
+              :disabled="saving || !isFormValid"
+              title="Сохранить изменения"
+            >
               <Icon :icon="uiIcons?.icons.save" width="20" height="20" /> Сохранить изменения
             </button>
           </template>
           <template v-else-if="isEditing && mode === 'create'">
-            <button class="save-btn" @click="onSave" title="Применить">
+            <button 
+              class="save-btn" 
+              :class="{ 'save-btn-active': isFormValid }"
+              :disabled="saving || !isFormValid"
+              @click="onSave" 
+              title="Применить"
+            >
               <Icon :icon="uiIcons?.icons.save" width="20" height="20" /> Применить
             </button>
           </template>
           <template v-else>
-            <button type="button" class="btn" @click="enterEdit" v-if="canEdit && mode !== 'create' && mode !== 'view'">Редактировать</button>
+            <button type="button" class="btn" @click="enterEdit" v-if="canEdit && mode !== 'create' && mode !== 'view'">
+              <Icon :icon="uiIcons?.icons.editOutline" width="20" height="20" />Редактировать
+            </button>
           </template>
           <button class="close-btn" @click="close" title="Закрыть">
             <Icon :icon="uiIcons?.icons.close" class="close-btn-icon" width="36" height="36" />
@@ -40,7 +55,7 @@
             <UILabel v-model="form.roleName" label="Роль" :show-empty-indicator="true" />
             <UILabel v-model="form.middleName" label="Отчество" :show-empty-indicator="true" />
             <UILabel v-model="form.login" label="Логин" :show-empty-indicator="true" />
-            <UILabel v-model="form.object" label="Объект" :show-empty-indicator="true" />
+            <UILabel :modelValue="form.object?.name || ''" label="Объект" :show-empty-indicator="true" />
             </div>
           </div>
           </template>
@@ -91,7 +106,7 @@
                 :search-debounce= 1000
                 :max-length="30"
                 :required="true"
-                :load-options="getOrgOptions"
+                :load-options="loadOrgOptions"
                 :disabled="canEditAdmin"
               />
             </div>
@@ -174,7 +189,7 @@
                 :max-length="30"
                 :search-debounce= 1000
                 :disabled="canEditObject"
-                :load-options="getObjectOptions"
+                :load-options="loadObjectOptions"
               />
             </div>
             </div>
@@ -196,7 +211,7 @@
             </button>
           </template>
           <template v-else>
-            <button type="button" class="btn" @click="resetForm">
+            <button v-if="hasAnyInput" type="button" class="btn" @click="resetForm">
               <Icon :icon="uiIcons?.icons.reload" width="20" height="20" />Сбросить
             </button>
           </template>
@@ -271,6 +286,25 @@ function passwordEdit() {
   console.log("User Data: ", pendingUserData)
   passwordModalMode.value = 'edit'
   showPasswordModal.value = true
+}
+
+const loadOrgOptions = async (searchStr, url) => {
+  if (!searchStr && !url && form.organization?.name) {
+    // Используем название текущей организации как поисковый запрос
+    searchStr = form.organization.name
+  }
+  return await getOrgOptions(searchStr, url)
+}
+
+const loadObjectOptions = async (searchStr, url) => {
+  if (!form.organization?.id) {
+    return { data: [], current_page: 1, last_page: 1 }
+  }
+  if (!searchStr && !url && form.object?.name) {
+    // Используем название текущей организации как поисковый запрос
+    searchStr = form.object.name
+  }
+  return await getObjectOptions(searchStr, form.organization.id, url)
 }
 
 const authStore = useAuthStore()
@@ -349,6 +383,7 @@ watch(() => form.organization, async (newOrg) => {
     await loadOrganizationRoles(newOrg)
     // Сбрасываем выбранную роль при смене организации
     if(oldOrg !== newOrg){
+      form.object = null
       form.roleId = null
     }
   }
@@ -357,10 +392,45 @@ watch(() => form.organization, async (newOrg) => {
 // Опции для выпадающих списков
 const roleOptions = ref([])
 
+function hasChanges() {
+  if (formClone.id !== form.id) return true
+  if (formClone.firstName !== form.firstName) return true
+  if (formClone.lastName !== form.lastName) return true
+  if (formClone.middleName !== form.middleName) return true
+  if (formClone.email !== form.email) return true
+  if (formClone.login !== form.login) return true
+  if (formClone.phone !== form.phone) return true
+  if (formClone.roleId !== form.roleId) return true
+  
+  const oldOrgId = formClone.organization?.id || null
+  const newOrgId = form.organization?.id || null
+  if (oldOrgId !== newOrgId) return true
+  
+  const oldObjId = formClone.object?.id || null
+  const newObjId = form.object?.id || null
+  if (oldObjId !== newObjId) return true
+  
+  return false
+}
+
+const isFormValid = computed(() => {
+  return form.firstName?.trim() && form.lastName?.trim() && form.email?.trim() && form.login?.trim() && form.organization?.id
+})
+
+const hasFormChanges = computed(() => {
+  return hasChanges()
+})
+
+const hasAnyInput = computed(() => {
+  return form.firstName?.trim() || form.lastName?.trim() || form.middleName?.trim() || 
+         form.email?.trim() || form.login?.trim() || form.phone?.trim() || 
+         form.organization || form.object
+})
+
 const modalTitle = computed(() => {
   let title
   if (props.mode === 'self') 
-    title = 'Мой профиль '
+    title = 'Мой профиль'
   else if (props.mode === 'create') 
     title = 'Создание пользователя'
   else
@@ -370,7 +440,7 @@ const modalTitle = computed(() => {
 
 const modalMainUser = computed(() => {
   if(props?.user?.user_id === 1){
-    return 'Основной пользователь'
+    return ' - Основной пользователь'
   }
   return ''
 })
@@ -518,9 +588,17 @@ function fillForm(userData) {
     form.organization = null
     form.organization_id = null
   }
-  
-  form.object = null
-  form.object_id = null
+
+  if (userData?.object) {
+    form.object = {
+      id: userData.object.id,
+      name: userData.object.name,
+    }
+    form.object_id = userData.object.id
+  } else {
+    form.object = null
+    form.object_id = null
+  }
 
   form.roleId = userData?.role_id || userData?.role?.id || null
   
@@ -540,6 +618,7 @@ function cloneForm(){
   formClone.login = form.login
   formClone.phone = form.phone
   formClone.organization = form.organization
+  formClone.object = form.object
   formClone.object_id = null
   formClone.roleId = form.roleId
 }
@@ -554,7 +633,7 @@ function validatePayload(payload, clone){
   payload.phone_number === clone.phone_number &&
   payload.organization === clone.organization &&
   payload.object === clone.object &&
-  payload.roleId === clone.roleId){
+  payload.role === clone.role){
     return true
   }
   return false
@@ -731,12 +810,13 @@ async function onSave() {
         isEditing.value = false
         await loadData()
         close()
+        emit('saved', res)
       }
     } else {
       payload.user_id = form.id
       console.log("Отправка на сервер при редактировании пользователя: ", payload)
       res = await usersStore.updateUserById(payload)
-      if(!res.validator_fails){
+      if(!res.validator_fails && !res.errors){
         confirmed = await successUserModal.value.open({
         title: '',
         mainMessage: 'Пользователь успешно изменен',
@@ -806,7 +886,7 @@ async function onSave() {
 
 async function handleUserCreated(res) {
   let confirmed
-  if(!res.validator_fails){
+  if(!res.validator_fails && !res.errors){
     confirmed = await successUserModal.value.open({
       title: '',
       mainMessage: 'Пользователь успешно создан',
@@ -815,11 +895,11 @@ async function handleUserCreated(res) {
   }
   if(confirmed){
     await loadData()
-    emit('created', res)
+    emit('saved', res)
     showPasswordModal.value = false
     close()
   }
-  if(res.validator_fails){
+  if(res.validator_fails || res.errors){
     confirmed = await successUserModal.value.open({
       title: '',
       mainMessage: 'Ошибка при создании пользователя. Пользователь не создан',
@@ -844,7 +924,7 @@ async function handlePasswordChanged(res) {
   if(confirmed){
     showPasswordModal.value = false
   }
-  if(res.validator_fails){
+  if(res.validator_fails || res.errors){
     confirmed = await successUserModal.value.open({
       title: '',
       mainMessage: 'Ошибка при изменении пароля. Пароль не изменен',
@@ -917,9 +997,9 @@ const deleteUser = async () => {
     console.log("Отправка на сервер при удалении пользователя: ", form.id)
     let confirmed2
     const payload = {}
-    payload.users = [form.id]
+    payload.users = form.id
     let res = await usersStore.deleteUser(payload)
-    if(res.validator_fails){
+    if(res.validator_fails || res.errors){
       await successUserModal.value.open({
         title: '',
         mainMessage: 'Ошибка при удалении пользователя. Пользователь не удален',
@@ -997,6 +1077,24 @@ const deleteUser = async () => {
 .save-btn:hover {
   background: #34bb32;
   transform: scale(1.03);
+}
+
+.save-btn-active {
+  background: #3cc93a;
+  opacity: 1;
+  cursor: pointer;
+}
+
+.save-btn-active:hover:not(:disabled) {
+  background: #34bb32;
+  transform: scale(1.03);
+}
+
+.save-btn:disabled {
+  background: #cccccc;
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .close-btn {

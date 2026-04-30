@@ -169,14 +169,17 @@ const roleIdMap = {
   'client': 4
 }
 
+// Пагинация
 const paginationData = ref({
   current_page: 1,
   last_page: 1,
-  per_page: 1,
+  per_page: 20,
+  prev_page_url: null,
+  next_page_url: null,
   total: 0,
   links: [],
   from: 0,
-  to: 0
+  to: 0,
 })
 
 // Храним параметры последнего запроса для сравнения
@@ -188,7 +191,7 @@ const lastRequestParams = ref({
 
 
 // Загрузка пользователей для таблицы (с фильтрацией и пагинацией)
-const loadUsers = async () => {
+const loadUsers = async (url) => {
   loading.value = true
   try {
     const params = {
@@ -203,6 +206,9 @@ const loadUsers = async () => {
       roles: [...params.roles],
       page: currentPage
     }
+    if(url){
+      params.url = url
+    }
 
     const response = await usersStore.fetchUsers(params)
 
@@ -216,6 +222,8 @@ const loadUsers = async () => {
         current_page: response.data.current_page || 1,
         last_page: response.data.last_page || 1,
         per_page: response.data.per_page || 20,
+        prev_page_url: response.data.prev_page_url || null,
+        next_page_url: response.data.next_page_url || null,
         total: response.data.total || 0,
         links: response.data.links || [],
         from: response.data.from || 0,
@@ -252,9 +260,11 @@ const deleteSelectedUsers = async () => {
   
   try {
     // Отправляем запрос на удаление
-    const result = await usersStore.deleteUsers(selectedUserIds.value)
+    const payload = {}
+    payload.users = selectedUserIds.value
+    const result = await usersStore.deleteUsers(payload)
     
-    if (!result.validate_fails) {
+    if (!result.validate_fails && !result.errors) {
       let confirmed = await successUserModal.value.open({
         title: '',
         mainMessage: 'Пользователь успешно удален',
@@ -383,10 +393,18 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.all-users-page{
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 .table-controls {
   display: flex;
   gap: 20px;
   border-bottom: 3px solid rgb(210, 210, 210);
+  position: sticky;
+  top: 0px;  
   width: 100%;
   padding-bottom: 10px;
 }
@@ -416,6 +434,9 @@ onMounted(() => {
 .table-section {
   padding: 10px;
   margin: 0 20px 0 20px;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0; 
 }
 
 .quick-filters {

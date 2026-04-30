@@ -41,7 +41,17 @@ const adminRoutes = [
     name: 'admin-companies',
     component: () => import('@/views/admin/directories/DOrganizations.vue'),
     meta: {
-      title: 'Компании',
+      title: 'Организации',
+      requiresAuth: true,
+      role: 'admin',
+    },
+  },
+  {
+    path: '/admin/directories/objects',
+    name: 'admin-objects',
+    component: () => import('@/views/admin/directories/DObjects.vue'),
+    meta: {
+      title: 'Объекты',
       requiresAuth: true,
       role: 'admin',
     },
@@ -52,6 +62,26 @@ const adminRoutes = [
     component: () => import('@/views/admin/directories/DUsers.vue'),
     meta: {
       title: 'Пользователи',
+      requiresAuth: true,
+      role: 'admin',
+    },
+  },
+  {
+    path: '/admin/directories/supportGroups',
+    name: 'admin-support-groups',
+    component: () => import('@/views/admin/directories/DSupportGroups.vue'),
+    meta: {
+      title: 'Группы поддержки',
+      requiresAuth: true,
+      role: 'admin',
+    },
+  },
+  {
+    path: '/admin/directories/businessProcesses',
+    name: 'admin-business-processes',
+    component: () => import('@/views/admin/directories/DBusinessProcesses.vue'),
+    meta: {
+      title: 'Бизнес-процессы',
       requiresAuth: true,
       role: 'admin',
     },

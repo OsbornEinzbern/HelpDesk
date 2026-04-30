@@ -13,18 +13,7 @@
       :grid-template-columns="gridTemplateColumns"
       :loading="loading"
       :sortable="false"
-      :pagination="true"
-      :page-size="pagination.per_page"
-      :current-page="pagination.current_page"
-      :show-page-size-selector="false"
-      :show-page-jump="false"
-      :total-items="pagination.total"
-      :last-page="pagination.last_page"
-      :from="pagination.from"
-      :to="pagination.to"
-      :links="pagination.links"
-      :prev-page-url="pagination.prev_page_url"
-      :next-page-url="pagination.next_page_url"
+      :pagination-data="pagination"
       @rowClick="handleRowClick"
       @sortChange="handleSortChange"
       @pageChange="handlePageChange"
@@ -122,10 +111,6 @@ const props = defineProps({
       to: 0
     })
   },
-  showLaravelPagination: {
-    type: Boolean,
-    default: true
-  },
   selectedUserIds: {
     type: Array,
     default: () => []
@@ -219,8 +204,8 @@ const formatFullName = (lastName, firstName, middleName) => {
 }
 
 // Обработчик изменения страницы
-const handlePageChange = (page) => {
-  emit('pageChange', page)
+const handlePageChange = (url) => {
+  emit('pageChange', url)
 }
 
 // Обработчик сортировки
@@ -270,10 +255,10 @@ const getRoleLabel = (roleId) => {
 
 <style scoped>
 .users-table-wrapper {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
+  height: 100%;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #9c9c9c #eaeaea;
 }
 
 /* Убираем лишние стили, так как grid задается через пропсы */

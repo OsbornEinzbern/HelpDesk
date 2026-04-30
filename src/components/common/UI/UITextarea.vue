@@ -54,11 +54,11 @@ const props = defineProps({
   },
   minHeight: {
     type: String,
-    default: '80px'
+    default: '45px'
   },
   maxHeight: {
     type: String,
-    default: '200px'
+    default: '120px'
   },
   showCharCount: {
     type: Boolean,

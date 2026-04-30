@@ -35,7 +35,17 @@ const dispatcherRoutes = [
     name: 'dispatcher-companies',
     component: () => import('@/views/admin/directories/DOrganizations.vue'),
     meta: {
-      title: 'Компании',
+      title: 'Организации',
+      requiresAuth: true,
+      role: 'dispatcher',
+    },
+  },
+  {
+    path: '/dispatcher/directories/objects',
+    name: 'dispatcher-objects',
+    component: () => import('@/views/admin/directories/DObjects.vue'),
+    meta: {
+      title: 'Объекты',
       requiresAuth: true,
       role: 'dispatcher',
     },
@@ -46,6 +56,26 @@ const dispatcherRoutes = [
     component: () => import('@/views/admin/directories/DUsers.vue'),
     meta: {
       title: 'Пользователи',
+      requiresAuth: true,
+      role: 'dispatcher',
+    },
+  },
+  {
+    path: '/dispatcher/directories/supportGroups',
+    name: 'dispatcher-support-groups',
+    component: () => import('@/views/admin/directories/DSupportGroups.vue'),
+    meta: {
+      title: 'Группы поддержки',
+      requiresAuth: true,
+      role: 'dispatcher',
+    },
+  },
+  {
+    path: '/dispatcher/directories/businessProcesses',
+    name: 'dispatcher-business-processes',
+    component: () => import('@/views/admin/directories/DBusinessProcesses.vue'),
+    meta: {
+      title: 'Бизнес-процессы',
       requiresAuth: true,
       role: 'dispatcher',
     },

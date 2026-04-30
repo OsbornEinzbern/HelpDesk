@@ -1,9 +1,8 @@
 <!--
-    Справочник компаний-клиентов
+    Справочник организаций
     Таблица компаний с поиском и фильтрацией
     Создание/редактирование компаний, управление контактными лицами
 -->
-<!-- src/views/admin/directories/DOrganizations.vue -->
 <template>
   <!-- Основной контент страницы -->
   <UIIcons ref="uiIcons" />
@@ -11,6 +10,16 @@
     <!-- Панель с кнопками над таблицей -->
     <div class="table-controls">
       <div class="table-controls-left">
+          <button 
+          v-if="canDeleteOrg"
+          type="button" 
+          class="btn danger" 
+          @click.stop="deleteSelectedOrgs" 
+          :disabled="selectedOrgIds.length === 0"
+          :title="getDeleteButtonTitle"
+        >
+          <Icon :icon="uiIcons?.icons.deleteOutline" width="22" height="22" />
+        </button>
         <div class="search-section">
           <UIInput
             v-model="searchQuery"
@@ -81,6 +90,8 @@
         :organizations="organizations"
         :loading="loading"
         :pagination="paginationData"
+        :selected-org-ids="selectedOrgIds"
+        @update:selectedOrgIds="handleSelectionChange"
         @rowClick="handleRowClick"
         @pageChange="handlePageChange"
       />
@@ -95,6 +106,8 @@
       @deleted="handleOrganizationDeleted"
     />
   </div>
+  <DeleteNotification ref="deleteNotification" />
+  <SuccessNotification ref="successOrganizationModal" />
 </template>
 
 <script setup>
@@ -105,19 +118,21 @@ import OrganizationsTable from '@/components/tables/OrganizationsTable.vue'
 import UIInput from '@/components/common/UI/UIInput.vue'
 import UIButton from '@/components/common/UI/UIButton.vue'
 import OrganizationProfileModal from '@/components/modal/OrganizationProfileModal.vue'
+import DeleteNotification from '@/components/notifications/DeleteNotification.vue'
+import SuccessNotification from '@/components/notifications/SuccessNotification.vue'
 import { Icon } from '@iconify/vue'
 import UIIcons from '@/components/common/UI/UIIcons.vue'
 
 const uiIcons = ref()
 const organizationsStore = useOrganizationsStore()
-
 const searchQuery = ref('')
 const selectedTypes = ref([]) // хранит id: 1,2,3,4
 const organizations = ref([])
 const loading = ref(false)
-
-// Модальное окно
+const selectedOrgIds = ref([]) // массив ID выбранных организаций
+const deleteNotification = ref(null)
 const selectedOrganization = ref(null)
+const successOrganizationModal = ref()
 const modalVisible = ref(false)
 const modalMode = ref('create')
 
@@ -134,26 +149,47 @@ const canCreateOrganization = computed(() => {
   return getUserRole() === 'admin'
 })
 
+// Пагинация
 const paginationData = ref({
   current_page: 1,
   last_page: 1,
   per_page: 20,
+  prev_page_url: null,
+  next_page_url: null,
   total: 0,
   links: [],
   from: 0,
   to: 0,
 })
 
+const canDeleteOrg = computed(() => {
+  return getUserRole() === 'admin'
+})
+
+// Текст подсказки для кнопки удаления
+const getDeleteButtonTitle = computed(() => {
+  if (selectedOrgIds.value.length === 0) {
+    return 'Выберите организации для удаления'
+  }
+  return `Удалить выбранные организации (${selectedOrgIds.value.length})`
+})
+
+// Обработка изменения выбранных пользователей
+const handleSelectionChange = (newSelection) => {
+  selectedOrgIds.value = newSelection
+}
+
 // Загрузка организаций
-const loadOrganizations = async () => {
+const loadOrganizations = async (url) => {
   loading.value = true
 
   try {
     const params = {
       search: searchQuery.value,
-      roles: selectedTypes.value, // старое имя оставлено, по смыслу это роли
-      page: paginationData.value.current_page,
-      perPage: paginationData.value.per_page,
+      types: selectedTypes.value,
+    }
+    if(url){
+      params.url = url
     }
 
     console.log('Загрузка организаций с параметрами:', params)
@@ -168,21 +204,12 @@ const loadOrganizations = async () => {
           current_page: response.data.current_page || 1,
           last_page: response.data.last_page || 1,
           per_page: response.data.per_page || 20,
+          prev_page_url: response.data.prev_page_url || null,
+          next_page_url: response.data.next_page_url || null,
           total: response.data.total || 0,
           links: response.data.links || [],
           from: response.data.from || 0,
           to: response.data.to || 0,
-        }
-      } else if (Array.isArray(response.data)) {
-        organizations.value = response.data
-        paginationData.value = {
-          current_page: 1,
-          last_page: 1,
-          per_page: organizations.value.length || 20,
-          total: organizations.value.length || 0,
-          links: [],
-          from: 1,
-          to: organizations.value.length || 0,
         }
       } else {
         organizations.value = []
@@ -197,6 +224,65 @@ const loadOrganizations = async () => {
   } catch (error) {
     console.error('Ошибка загрузки организаций:', error)
     organizations.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+// Множественное удаление выбранных пользователей
+const deleteSelectedOrgs = async () => {
+  if (selectedOrgIds.value.length === 0) return
+  
+  // Открываем модальное окно подтверждения
+  const confirmed = await deleteNotification.value?.open({
+    title: 'Подтверждение массового удаления',
+    mainMessage: `Вы действительно хотите удалить организации?`,
+    secondaryMessage: 'Это действие необратимо. Все данные организаций и их пользователей будут удалены.',
+    confirmText: 'Удалить'
+  })
+  
+  if (!confirmed) return
+  
+  loading.value = true
+  
+  try {
+    // Отправляем запрос на удаление
+    const result = await organizationsStore.deleteOrganizations(selectedOrgIds.value)
+    
+    if (!result.data.validator_fails && !result.errors) {
+      let confirmed = await successOrganizationModal.value.open({
+        title: '',
+        mainMessage: 'Организации успешно удалены',
+        type: 'success',
+      })
+      if(confirmed){
+        console.log(`Успешно удалено организаций: ${result.deletedCount}`)
+      
+        // Очищаем выбор
+        selectedOrgIds.value = []
+      
+        // Перезагружаем список пользователей
+        await loadOrganizations()
+      }
+    } else {
+      console.error('Ошибка при удалении организаций:', result.error)
+      
+      // Показываем ошибку
+      await successOrganizationModal.value.open({
+        title: '',
+        mainMessage: 'Ошибка при удалении организаций. Организации не удалены',
+        type: 'notSuccess',
+      })
+    }
+  } catch (error) {
+    console.error('Ошибка при удалении организаций:', error)
+    
+    // Показываем ошибку
+    await successOrganizationModal.value.open({
+        title: '',
+        mainMessage: 'Ошибка при удалении организаций. Организации не удалены',
+        type: 'notSuccess',
+    })
   } finally {
     loading.value = false
   }
@@ -270,10 +356,18 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.all-organizations-page{
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 .table-controls {
   display: flex;
   gap: 20px;
   border-bottom: 3px solid rgb(210, 210, 210);
+  position: sticky;
+  top: 0px;  
   width: 100%;
   padding-bottom: 10px;
 }
@@ -298,6 +392,41 @@ onMounted(() => {
 .table-section {
   padding: 10px;
   margin: 0 20px 0 20px;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0; 
+}
+
+.btn { 
+  padding: 4px 4px; 
+  border-radius:50%; 
+  cursor:pointer; 
+  border:1px solid rgba(0,0,0,0.08);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+}
+
+.btn.danger:disabled {
+  background:#b8b8b8; 
+  color:#f0f0f0; 
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn:disabled:hover {
+  transform: none;
+}
+
+.btn:hover:not(:disabled) {
+  transform: scale(1.03);
+  background:#c52727; 
+}
+
+.btn.danger { 
+  background:#ef4444; 
+  color:#fff; 
+  border:none; 
 }
 
 .quick-filters {

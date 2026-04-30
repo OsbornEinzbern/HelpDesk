@@ -21,7 +21,7 @@
 
         <template #actions>
           <div class="header-actions">
-            <NotificationBell />
+            <!--<NotificationBell />-->
             <UserProfile @openProfile="openProfile" />
           </div>
         </template>
@@ -71,7 +71,7 @@ const openProfile = () => {
 <style scoped>
 .admin-layout {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
   background-color: #eaeaea;
 }
 
@@ -80,6 +80,7 @@ const openProfile = () => {
   display: flex;
   flex-direction: column;
   position: relative;
+  overflow: hidden;
 }
 
 .header {
@@ -92,6 +93,8 @@ const openProfile = () => {
 .content {
   flex: 1;
   margin-top: 10px;
+  overflow-y: auto; 
+  overflow-x: hidden;
 }
 
 .header-actions {

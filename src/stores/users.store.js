@@ -211,7 +211,7 @@ export const useUsersStore = defineStore('users', {
       const cache = this.initCache()
       
       // Генерируем ключ для кэша
-      const cacheKey = cache.getCacheKey('users', params)
+      const cacheKey = this.generateCacheKey(params)
       
       // Если параметры НЕ изменились и есть валидный кэш - используем его
       if (cache.isCacheValid(cacheKey)) {
@@ -232,10 +232,18 @@ export const useUsersStore = defineStore('users', {
           user_search: params.search || '',
           roles: params.roles || (params.role ? [params.role] : []),
         }
+
+        let route
+        if(params.url){
+          route = params.url
+        }
+        else{
+          route = '/users/load_users'
+        }
       
-        console.log('📤 Отправка запроса /users/load_users:', requestBody)
+        console.log('📤 Отправка запроса: ', route, ' ', requestBody)
       
-        const response = await globalApiClient.post('/users/load_users', requestBody)
+        const response = await globalApiClient.post(route, requestBody)
       
         console.log('📥 Ответ от сервера:', response)
       
@@ -286,6 +294,20 @@ export const useUsersStore = defineStore('users', {
           console.log(`🗑️ Удалено ${keysToDelete.length} ключей с префиксом ${prefix}:`, keysToDelete)
         }
       }
+    },
+
+    // Генерация ключа кэша на основе параметров
+    generateCacheKey(params) {
+      const search = params.search || ''
+      const roles = params.roles || []
+      let page = 1
+      if(params.url){
+        const pageParam = params.url.split('?')[1];
+        page = pageParam.split('=')[1];
+      }
+      // Сортируем ID организаций для стабильности ключа
+      const usersKey = [...roles].sort().join(',')
+      return `users_search_${search}_roles_${usersKey}_page_${page}`
     },
     
     invalidateCacheKey(params) {

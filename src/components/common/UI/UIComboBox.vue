@@ -5,54 +5,102 @@
       <span v-if="required" class="required-asterisk">*</span>
       <span v-if="showError" class="combobox-error">{{ errorMessage }}</span>
     </span>
+    
     <div class="combobox-container" :class="{ 'has-error': showError }">
-    <input
-      ref="inputRef"
-      :value="searchValue"
-      @input="handleInput"
-      @focus="handleFocus"
-      @blur="handleBlur"
-      :placeholder="placeholder"
-      :required="required"
-      :disabled="disabled"
-      :maxlength="maxLength"
-      class="ui-combobox-input"
-    />
+      <input
+        ref="inputRef"
+        :value="searchValue"
+        @input="handleInput"
+        @focus="handleFocus"
+        @blur="handleBlur"
+        :placeholder="placeholder"
+        :required="required"
+        :disabled="disabled"
+        :maxlength="maxLength"
+        class="ui-combobox-input"
+      />
     </div>
-    <!-- Выпадающий список с виртуальным скроллом -->
+    <Teleport to="body">
+      <div 
+        v-if="showDropdown && !isSearching" 
+        class="combobox-dropdown teleported-dropdown"
+        :style="dropdownStyle"
+        ref="dropdownRef"
+        @scroll="handleDropdownScroll"
+        @mousedown.prevent
+      >
+        <div
+          v-for="item in allOptions"
+          :key="getOptionValue(item)"
+          class="combobox-option"
+          :class="{ 
+            'combobox-option-checked': multiple && isItemChecked(item)
+          }"
+        >
+          <span v-if="multiple" class="checkbox-indicator" @click.stop="toggleSelection(item)">
+            <Icon v-if="isItemChecked(item)" :icon="uiIcons?.icons.checkboxChecked" width="16" height="16" />
+            <Icon v-else :icon="uiIcons?.icons.checkboxUnchecked" width="16" height="16" />
+          </span>
+          <span v-if="!multiple" @click="toggleSelection(item)" class="option-label">{{ getOptionLabel(item) }}</span>
+          <span v-else class="option-label" @click.stop="toggleSelection(item)">{{ getOptionLabel(item) }}</span>
+        </div>
+        
+        <div v-if="loadingNextPage" class="combobox-loading-more">
+          Загрузка...
+        </div>
+      </div>
+      
+      <div 
+        v-if="showDropdown && allOptions.length === 0 && !isSearching" 
+        class="combobox-dropdown combobox-no-results"
+        :style="dropdownStyle"
+      >
+        <div class="combobox-no-results-text">
+          Ничего не найдено
+        </div>
+      </div>
+      
+      <div 
+        v-if="showDropdown && isSearching" 
+        class="combobox-dropdown combobox-loading"
+        :style="dropdownStyle"
+      >
+        <div class="combobox-loading-text">
+          Поиск...
+        </div>
+      </div>
+    </Teleport>
+    
+    <!-- Выпадающий список 
     <div 
       v-if="showDropdown && !isSearching" 
       class="combobox-dropdown"
       :style="{ maxHeight: dropdownMaxHeight }"
       ref="dropdownRef"
       @scroll="handleDropdownScroll"
+      @mousedown.prevent
     >
-      <!-- Виртуальный скроллер для опций -->
-      <RecycleScroller
-        v-if="allOptions.length > 0"
-        class="scroller"
-        :items="allOptions"
-        :item-size="36"
-        key-field="id"
-        v-slot="{ item }"
-        :emit-update="true"
-        @update="handleScrollerUpdate"
+      <div
+        v-for="item in allOptions"
+        :key="getOptionValue(item)"
+        class="combobox-option"
+        :class="{ 
+          'combobox-option-checked': multiple && isItemChecked(item)
+        }"
       >
-        <div 
-          class="combobox-option"
-          @mousedown="selectOption(item)"
-          :class="{ 'combobox-option-selected': isOptionSelected(item) }"
-        >
-          {{ getOptionLabel(item) }}
-        </div>
-      </RecycleScroller>
+        <span v-if="multiple" class="checkbox-indicator" @click.stop="toggleSelection(item)">
+          <Icon v-if="isItemChecked(item)" :icon="uiIcons?.icons.checkboxChecked" width="16" height="16" />
+          <Icon v-else :icon="uiIcons?.icons.checkboxUnchecked" width="16" height="16" />
+        </span>
+        <span v-if="!multiple" @click="toggleSelection(item)" class="option-label">{{ getOptionLabel(item) }}</span>
+        <span v-else class="option-label" @click.stop="toggleSelection(item)">{{ getOptionLabel(item) }}</span>
+      </div>
       
-      <!-- Сообщение о загрузке следующей страницы -->
       <div v-if="loadingNextPage" class="combobox-loading-more">
         Загрузка...
       </div>
     </div>
-    <!-- Если нет результатов поиска -->
+    
     <div 
       v-if="showDropdown && allOptions.length === 0 && !isSearching" 
       class="combobox-dropdown combobox-no-results"
@@ -61,7 +109,7 @@
         Ничего не найдено
       </div>
     </div>
-    <!-- Индикатор загрузки при поиске -->
+    
     <div 
       v-if="showDropdown && isSearching" 
       class="combobox-dropdown combobox-loading"
@@ -69,18 +117,18 @@
       <div class="combobox-loading-text">
         Поиск...
       </div>
-    </div>
-
+    </div>-->
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue'
-import { RecycleScroller } from 'vue-virtual-scroller'
-import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { Icon } from '@iconify/vue'
+
+const uiIcons = ref()
 
 const props = defineProps({
-  modelValue: [String, Number, Object],
+  modelValue: [String, Number, Object, Array],
   options: {
     type: Array,
     default: () => []
@@ -118,40 +166,40 @@ const props = defineProps({
     default: '190px'
   },
   customClass: String,
-  // Кастомные правила валидации
   rules: {
     type: Array,
     default: () => []
   },
-  // Кастомное сообщение для required
   requiredMessage: {
     type: String,
     default: 'Обязательное поле'
   },
-  // Показывать ошибку сразу или после потери фокуса
   validateOnBlur: {
     type: Boolean,
     default: true
   },
   returnObject: {
     type: Boolean,
-    default: true // true - возвращаем объект, false - возвращаем строку
+    default: true
   },
-  // Задержка поиска в миллисекундах
   searchDebounce: {
     type: Number,
     default: 20
   },
-  // Функция для загрузки опций с сервера
   loadOptions: {
     type: Function,
     default: null
   },
+  multiple: {
+    type: Boolean,
+    default: false
+  }
 })
 
 const emit = defineEmits(['update:modelValue', 'blur', 'valid', 'error'])
 
 const inputRef = ref(null)
+const dropdownRef = ref(null)
 const searchValue = ref('')
 const showDropdown = ref(false)
 const isTouched = ref(false)
@@ -167,32 +215,56 @@ const pagination = ref({
   prevPageUrl: null,
   hasMorePages: false
 })
+const dropdownStyle = ref({})
+
+const updateDropdownPosition = () => {
+  if (!inputRef.value) return
+  
+  const rect = inputRef.value.getBoundingClientRect()
+  dropdownStyle.value = {
+    position: 'fixed',
+    top: `${rect.bottom + window.scrollY}px`,
+    left: `${rect.left + window.scrollX}px`,
+    width: `${rect.width}px`,
+    maxHeight: props.dropdownMaxHeight,
+    zIndex: 9999
+  }
+}
+
+// Выбранные элементы для множественного режима
+const selectedItems = computed(() => {
+  if (!props.multiple) return []
+  const value = props.modelValue
+  if (!value) return []
+  if (Array.isArray(value)) return value
+  return []
+})
 
 const allOptions = computed(() => {
-  // Если есть локально загруженные опции, используем их
   if (localOptions.value.length > 0) {
     return localOptions.value
   }
-  // Иначе используем переданные через пропс
   return props.options
 })
 
-// Валидация поля
 const validate = () => {
   const value = props.modelValue
   
-  // Проверка required
   if (props.required) {
-    if (value === null || value === undefined || value === '') {
-      return props.requiredMessage
-    }
-    
-    if (typeof value === 'string' && !value.trim()) {
-      return props.requiredMessage
+    if (props.multiple) {
+      if (!value || (Array.isArray(value) && value.length === 0)) {
+        return props.requiredMessage
+      }
+    } else {
+      if (value === null || value === undefined || value === '') {
+        return props.requiredMessage
+      }
+      if (typeof value === 'string' && !value.trim()) {
+        return props.requiredMessage
+      }
     }
   }
   
-  // Кастомные правила
   for (const rule of props.rules) {
     if (typeof rule === 'function') {
       const result = rule(value)
@@ -209,14 +281,13 @@ const validate = () => {
   return ''
 }
 
-// Обновляем ошибку при изменении значения
 watch(() => props.modelValue, () => {
   if (isTouched.value) {
     internalError.value = validate()
     emit('valid', !internalError.value)
     emit('error', internalError.value)
   }
-})
+}, { deep: true })
 
 const showError = computed(() => {
   return (isTouched.value || !props.validateOnBlur) && internalError.value
@@ -224,25 +295,63 @@ const showError = computed(() => {
 
 const errorMessage = computed(() => internalError.value)
 
-// Получение значения опции
 const getOptionValue = (option) => {
   return typeof option === 'object' ? option[props.optionValue] : option
 }
 
-// Получение метки опции
 const getOptionLabel = (option) => {
   return typeof option === 'object' ? option[props.optionLabel] : String(option)
 }
 
-// Проверка, выбрана ли опция
 const isOptionSelected = (option) => {
+  if (props.multiple) {
+    return selectedItems.value.some(item => getOptionValue(item) === getOptionValue(option))
+  }
   const optionValue = getOptionValue(option)
   const currentValue = props.modelValue
-  
   if (typeof currentValue === 'object') {
     return currentValue && getOptionValue(currentValue) === optionValue
   }
   return currentValue === optionValue
+}
+
+const isItemChecked = (option) => {
+  return isOptionSelected(option)
+}
+
+const toggleSelection = (item) => {
+  if (!props.multiple) {
+    // Одиночный режим - закрываем список
+    const optionLabel = getOptionLabel(item)
+    searchValue.value = optionLabel
+    emit('update:modelValue', props.returnObject ? item : optionLabel)
+    showDropdown.value = false
+  } else {
+    // Множественный режим - НЕ закрываем список
+    const currentSelection = [...selectedItems.value]
+    const exists = currentSelection.some(i => getOptionValue(i) === getOptionValue(item))
+    
+    if (exists) {
+      const newSelection = currentSelection.filter(i => getOptionValue(i) !== getOptionValue(item))
+      emit('update:modelValue', newSelection)
+    } else {
+      currentSelection.push(item)
+      emit('update:modelValue', currentSelection)
+    }
+    
+    // Очищаем поиск после выбора для удобства
+    searchValue.value = ''
+    // Фокусируемся на инпуте, чтобы можно было продолжать ввод
+    nextTick(() => {
+      inputRef.value?.focus()
+    })
+    // Список НЕ закрываем
+  }
+  
+  isTouched.value = true
+  internalError.value = validate()
+  emit('valid', !internalError.value)
+  emit('error', internalError.value)
 }
 
 const loadOptionsFromServer = async (searchTerm, url = null, append = false) => {
@@ -250,18 +359,15 @@ const loadOptionsFromServer = async (searchTerm, url = null, append = false) => 
   
   if (!append) {
     isSearching.value = true
-    // При новом поиске очищаем старые опции
     localOptions.value = []
   } else {
     loadingNextPage.value = true
   }
   
   try {
-    // Передаём и searchTerm, и url (если есть)
     const responseData = await props.loadOptions(searchTerm, url)
     console.log("Load in combobox: ", responseData)
     
-    // Сохраняем информацию о пагинации из ответа
     pagination.value = {
       currentPage: responseData.current_page,
       lastPage: responseData.last_page,
@@ -270,27 +376,12 @@ const loadOptionsFromServer = async (searchTerm, url = null, append = false) => 
       hasMorePages: responseData.current_page < responseData.last_page
     }
     
-    // Извлекаем массив опций из responseData.data
     const items = responseData.data || []
     
     if (append) {
-      // Добавляем новые элементы к существующим
       localOptions.value = [...localOptions.value, ...items]
     } else {
-      // Заменяем все элементы
       localOptions.value = items
-    }
-    
-    // Если есть выбранное значение
-    if (!append && props.modelValue && localOptions.value.length > 0) {
-      const matchingOption = localOptions.value.find(opt => 
-        getOptionValue(opt) === (typeof props.modelValue === 'object' 
-          ? getOptionValue(props.modelValue) 
-          : props.modelValue)
-      )
-      if (matchingOption) {
-        searchValue.value = getOptionLabel(matchingOption)
-      }
     }
   } catch (error) {
     console.error('Ошибка загрузки опций:', error)
@@ -307,13 +398,9 @@ const loadOptionsFromServer = async (searchTerm, url = null, append = false) => 
 }
 
 const loadNextPageFromUrl = async () => {
-  if (!pagination.value.nextPageUrl || loadingNextPage.value || isSearching.value) 
-  {
-    console.log(pagination.value.nextPageUrl, "  ", loadingNextPage.value, "  ", isSearching.value)
+  if (!pagination.value.nextPageUrl || loadingNextPage.value || isSearching.value) {
     return
   }
-  
-  // Вызываем loadOptionsFromServer с url и append = true
   await loadOptionsFromServer(null, pagination.value.nextPageUrl, true)
 }
 
@@ -324,111 +411,78 @@ const debouncedSearch = (searchTerm) => {
   
   if (props.loadOptions) {
     searchTimeout.value = setTimeout(async () => {
-      // При поиске всегда передаём searchTerm, без url, append = false
       await loadOptionsFromServer(searchTerm, null, false)
       searchTimeout.value = null
     }, props.searchDebounce)
   } else {
+    isSearching.value = false
     emit('search', searchTerm)
   }
 }
 
-// Обновите handleDropdownScroll для использования nextPageUrl
 const handleDropdownScroll = async (event) => {
-  if (!pagination.value.nextPageUrl || loadingNextPage.value || isSearching.value) 
-  {
-    console.log(pagination.value.nextPageUrl, "  ", loadingNextPage.value, "  ", isSearching.value)
+  if (!pagination.value.nextPageUrl || loadingNextPage.value || isSearching.value) {
     return
   }
   
   const { scrollTop, scrollHeight, clientHeight } = event.target
   const scrollBottom = scrollHeight - scrollTop - clientHeight
-  console.log("ScrollBottom: ", scrollBottom)
-  // Загружаем следующую страницу, когда осталось меньше 50px до конца
+  
   if (scrollBottom < 50) {
-    // Здесь нужно сделать запрос по URL следующей страницы
-    // Но текущий loadOptions принимает только searchTerm
-    // Нужно расширить его функциональность
     await loadNextPageFromUrl()
   }
 }
 
 const handleFocus = () => {
-  if (props.disabled) 
-    return
+  if (props.disabled) return
   
   showDropdown.value = true
   isSearching.value = true
   
-  // Запускаем debounced поиск с пустым термином при первом открытии
-  debouncedSearch('', true)
+  // Обновляем позицию перед открытием
+  nextTick(() => {
+    updateDropdownPosition()
+    debouncedSearch('', true)
+  })
   
   emit('focus')
 }
 
-// Обработчик ввода
+const handleWindowScroll = () => {
+  if (showDropdown.value) {
+    updateDropdownPosition()
+  }
+}
+
 const handleInput = (event) => {
-  console.log("Input change ", event.target.value)
   const inputValue = event.target.value
   searchValue.value = inputValue
   showDropdown.value = true
-  
-  // Запускаем debounced поиск
   debouncedSearch(inputValue)
   
-  // Это позволит родительскому компоненту отслеживать изменения поля ввода
-  emit('update:modelValue', inputValue)
-}
-
-// Обработчик выбора опции
-const selectOption = (option) => {
-  const optionLabel = getOptionLabel(option)
-  
-  searchValue.value = optionLabel
-  
-  if (props.returnObject) {
-    emit('update:modelValue', option) // возвращаем объект
-  } else {
-    emit('update:modelValue', optionLabel) // возвращаем строку
-  }
-  
-  showDropdown.value = false
-
-  emit('update:modelValue', option)
-  isTouched.value = true
-  internalError.value = validate()
-  emit('valid', !internalError.value)
-  emit('error', internalError.value)
-  
-  // Фокус на инпуте после выбора
-  nextTick(() => {
-    if (inputRef.value) {
-      inputRef.value.focus()
-    }
-  })
-
-  // Очищаем таймаут поиска при выборе опции
-  if (searchTimeout.value) {
-    clearTimeout(searchTimeout.value)
-    searchTimeout.value = null
-    isSearching.value = false
+  if (!props.multiple) {
+    emit('update:modelValue', inputValue)
   }
 }
 
-// Обработчик потери фокуса
 const handleBlur = () => {
+  // Задерживаем закрытие, чтобы дать время на клик по опции
   setTimeout(() => {
+    // Проверяем, не наведен ли курсор на выпадающий список
+    const dropdown = dropdownRef.value
+    if (dropdown && dropdown.contains(document.activeElement)) {
+      return
+    }
+    
     showDropdown.value = false
     isTouched.value = true
     
-    // Проверяем, соответствует ли введенный текст какой-либо опции
-    if (searchValue.value && allOptions.value.length > 0) {
+    if (!props.multiple && searchValue.value && allOptions.value.length > 0) {
       const matchingOption = allOptions.value.find(option => 
         getOptionLabel(option).toLowerCase() === searchValue.value.toLowerCase()
       )
       
       if (!matchingOption) {
-        // Если не соответствует, сбрасываем значение
         searchValue.value = ''
         emit('update:modelValue', null)
       }
@@ -438,9 +492,8 @@ const handleBlur = () => {
     emit('blur')
     emit('valid', !internalError.value)
     emit('error', internalError.value)
-  }, 50)
-
-  // Очищаем таймаут поиска при потере фокуса
+  }, 150)
+  
   if (searchTimeout.value) {
     clearTimeout(searchTimeout.value)
     searchTimeout.value = null
@@ -448,7 +501,6 @@ const handleBlur = () => {
   }
 }
 
-// Метод для принудительной валидации
 const validateField = () => {
   isTouched.value = true
   internalError.value = validate()
@@ -457,64 +509,42 @@ const validateField = () => {
   return !internalError.value
 }
 
-// Метод для сброса ошибки
 const clearError = () => {
   internalError.value = ''
   isTouched.value = false
   emit('error', '')
 }
 
-// Метод для установки внешней ошибки
 const setError = (message) => {
   isTouched.value = true
   internalError.value = message
   emit('error', message)
 }
 
-// Синхронизация modelValue с searchValue
 watch(() => props.modelValue, (newValue) => {
-  if (newValue) {
-    if (typeof newValue === 'object') {
+  if (!props.multiple) {
+    if (newValue && typeof newValue === 'object') {
       searchValue.value = getOptionLabel(newValue)
-    } else {
-      searchValue.value = String(newValue)
-    }
-  } else {
-    searchValue.value = ''
-  }
-}, { immediate: true })
-
-watch(() => props.options, (newOptions) => {
-  if (newOptions && newOptions.length > 0) {
-    // Если есть выбранное значение, обновляем отображение
-    if (props.modelValue) {
-      const matchingOption = newOptions.find(opt => 
-        getOptionValue(opt) === (typeof props.modelValue === 'object' 
-          ? getOptionValue(props.modelValue) 
-          : props.modelValue)
-      )
-      if (matchingOption) {
-        searchValue.value = getOptionLabel(matchingOption)
-      }
+    } else if (newValue && typeof newValue === 'string') {
+      searchValue.value = newValue
+    } else if (newValue === null || newValue === undefined || newValue === '') {
+      searchValue.value = ''
     }
   }
-}, { deep: true })
+}, { immediate: true, deep: true })
 
-// Метод для фокуса на инпут
 const focus = () => {
   if (inputRef.value) {
     inputRef.value.focus()
   }
 }
 
-// Метод для очистки
 const clear = () => {
   searchValue.value = ''
-  emit('update:modelValue', null)
+  emit('update:modelValue', props.multiple ? [] : null)
   clearError()
   localOptions.value = []
-
-  // Очищаем таймаут поиска
+  
   if (searchTimeout.value) {
     clearTimeout(searchTimeout.value)
     searchTimeout.value = null
@@ -532,7 +562,16 @@ const reloadOptions = async (searchTerm = '') => {
   }
 }
 
-// Экспортируем методы
+onMounted(() => {
+  window.addEventListener('scroll', handleWindowScroll, true)
+  window.addEventListener('resize', handleWindowScroll)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', handleWindowScroll, true)
+  window.removeEventListener('resize', handleWindowScroll)
+})
+
 defineExpose({
   focus,
   clear,
@@ -541,7 +580,8 @@ defineExpose({
   setError,
   reloadOptions,
   clearLocalOptions,
-  isValid: computed(() => !internalError.value)
+  isValid: computed(() => !internalError.value),
+  modelValue: props.modelValue
 })
 </script>
 
@@ -549,7 +589,6 @@ defineExpose({
 .ui-combobox-wrapper {
   position: relative;
   width: 100%;
-  max-height: 100px;
 }
 
 .combobox-container {
@@ -564,13 +603,17 @@ defineExpose({
 
 .ui-combobox-input {
   width: 100%;
-  padding: 4px 6px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+  padding-left: 6px;
+  padding-right: 3px;
   border: 1px solid #c5c5c5;
   border-radius: 6px;
   font-size: 14px;
   color: #141414;
   background-color: white;
   transition: all 0.2s ease;
+  min-height: 28px;
   box-sizing: border-box;
 }
 
@@ -584,7 +627,6 @@ defineExpose({
   border-color: #b00020;
   box-shadow: 0 0 0 2px rgba(176, 0, 32, 0.1);
 }
-
 
 .ui-combobox-input::placeholder {
   color: #9a9a9a;
@@ -602,7 +644,19 @@ defineExpose({
   margin-left: 2px;
 }
 
-/* Выпадающий список */
+.teleported-dropdown {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  z-index: 9999;
+}
+
 .combobox-dropdown {
   position: absolute;
   top: 100%;
@@ -611,37 +665,55 @@ defineExpose({
   background-color: white;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   z-index: 9;
   margin-top: 2px;
   overflow-y: auto;
   scrollbar-width: thin;
+  max-height: 190px;
 }
 
-/* Опции выпадающего списка */
 .combobox-option {
   padding: 8px 12px;
   font-size: 14px;
   color: #374151;
   cursor: pointer;
   transition: background-color 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkbox-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.option-label {
+  flex: 1;
+  cursor: pointer;
 }
 
 .combobox-option:hover {
   background-color: #e3ecff;
 }
 
-.combobox-option-selected {
+/* Стиль для выбранного элемента в выпадающем списке */
+.combobox-option-checked {
   background-color: #eff6ff;
+  color: #1d4ed8;
+}
+
+.combobox-option-checked .option-label {
   color: #1d4ed8;
   font-weight: 500;
 }
 
-.combobox-option:not(:last-child) {
-  border-bottom: 1px solid #f3f4f6;
-}
-
-/* Стили для отсутствия результатов */
 .combobox-no-results {
   padding: 12px;
   color: #6b7280;
@@ -653,7 +725,6 @@ defineExpose({
   font-style: italic;
 }
 
-/* Ошибка */
 .combobox-error {
   font-size: 11px;
   color: #b00020;
@@ -666,29 +737,6 @@ defineExpose({
   opacity: 0.7;
 }
 
-.ui-combobox-input:disabled:hover {
-  border-color: #c5c5c5;
-}
-
-/* Индикатор загрузки */
-.search-loading {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  width: 16px;
-  height: 16px;
-  border: 2px solid #e5e7eb;
-  border-top-color: #f63b3b;
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
-  pointer-events: none;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* Стили для индикатора загрузки в выпадающем списке */
 .combobox-loading {
   padding: 12px;
   color: #6b7280;
@@ -711,5 +759,16 @@ defineExpose({
   border-top-color: #2171f3;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
+}
+
+.combobox-loading-more {
+  padding: 8px;
+  text-align: center;
+  font-size: 12px;
+  color: #888;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 </style>

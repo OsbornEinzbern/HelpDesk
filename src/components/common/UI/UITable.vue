@@ -75,15 +75,7 @@
   <!-- Пагинация -->
   <UIPagination 
     v-if="showPagination"
-    :current-page="currentPage"
-    :last-page="lastPageComputed"
-    :per-page="pageSize"
-    :total="totalItems"
-    :from="fromComputed"
-    :to="toComputed"
-    :links="linksComputed"
-    :prev-page-url="prevPageUrlComputed"
-    :next-page-url="nextPageUrlComputed"
+    :pagination-data="paginationData"
     :show-info="showPaginationInfo"
     :show-page-size-selector="showPageSizeSelector"
     :show-page-jump="showPageJump"
@@ -95,7 +87,7 @@
 </template>
 
 <script setup>
-import { ref, defineProps, defineEmits, watch, computed } from 'vue'
+import { ref, computed } from 'vue'
 import UIPagination from '@/components/common/UI/UIPagination.vue'
 
 const props = defineProps({
@@ -110,7 +102,7 @@ const props = defineProps({
   },
   gridTemplateColumns: {
     type: String,
-    default: 'repeat(6, 1fr)' // 6 колонок по умолчанию
+    default: 'repeat(6, 1fr)'
   },
   loading: {
     type: Boolean,
@@ -128,80 +120,36 @@ const props = defineProps({
     type: Boolean,
     default: true,
   },
-  // Пропсы для пагинации
-  pagination: {
-    type: Boolean,
-    default: false,
+  paginationData: {
+    type: Object,
+    default: () => ({
+      current_page: 1,
+      last_page: 1,
+      per_page: 20,
+      total: 0,
+      links: [],
+      from: 0,
+      to: 0,
+      prev_page_url: null,
+      next_page_url: null
+    })
   },
-  pageSize: {
-    type: Number,
-    default: 20,
-  },
-  currentPage: {
-    type: Number,
-    default: 1,
-  },
-  showPaginationInfo: {
-    type: Boolean,
-    default: true,
-  },
-  showPageSizeSelector: {
-    type: Boolean,
-    default: false,
-  },
-  showPageJump: {
-    type: Boolean,
-    default: false,
-  },
-  compactPagination: {
-    type: Boolean,
-    default: false,
-  },
-  paginationNoBorder: {
-    type: Boolean,
-    default: false,
-  },
-  totalItems: { 
-    type: Number,
-    default: 0,
-  },
-  lastPage: {
-    type: Number,
-    default: 1
-  },
-  from: {
-    type: Number,
-    default: 0
-  },
-  to: {
-    type: Number,
-    default: 0
-  },
-  links: {
-    type: Array,
-    default: () => []
-  },
-  prevPageUrl: {
-    type: String,
-    default: null
-  },
-  nextPageUrl: {
-    type: String,
-    default: null
-  }
+  showPaginationInfo: { type: Boolean, default: true },
+  showPageSizeSelector: { type: Boolean, default: false },
+  showPageJump: { type: Boolean, default: false },
+  compactPagination: { type: Boolean, default: false },
+  paginationNoBorder: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['rowClick', 'sortChange', 'pageChange'])
 
 // Вычисляемое свойство для показа пагинации
 const showPagination = computed(() => {
-  return props.links.length > 3
+  return props.paginationData?.last_page > 1
 })
-
 
 const sortBy = ref('')
 const sortDirection = ref('asc')
-const localCurrentPage = ref(props.currentPage)
 
 const handleSort = (columnKey) => {
   if (!props.sortable) return
@@ -219,43 +167,9 @@ const handleSort = (columnKey) => {
   })
 }
 
-const handlePageChange = (page) => {
-  localCurrentPage.value = page
-  emit('pageChange', page)
+const handlePageChange = (url) => {
+  emit('pageChange', url)
 }
-
-// Вычисляемые свойства для Laravel pagination с правильными значениями по умолчанию
-const lastPageComputed = computed(() => {
-  return props.lastPage || Math.ceil(props.totalItems / props.pageSize) || 1
-})
-
-const fromComputed = computed(() => {
-  return props.from || ((props.currentPage - 1) * props.pageSize + 1)
-})
-
-const toComputed = computed(() => {
-  return props.to || Math.min(props.currentPage * props.pageSize, props.totalItems)
-})
-
-const linksComputed = computed(() => {
-  return props.links || []
-})
-
-const prevPageUrlComputed = computed(() => {
-  return props.prevPageUrl || null
-})
-
-const nextPageUrlComputed = computed(() => {
-  return props.nextPageUrl || null
-})
-
-watch(() => props.currentPage, (newPage) => {
-  localCurrentPage.value = newPage
-})
-
-watch(() => props.data, () => {
-  localCurrentPage.value = 1
-}, { deep: true })
 </script>
 
 <style scoped>
@@ -263,6 +177,7 @@ watch(() => props.data, () => {
   overflow-x: auto;
   border-radius: 8px;
   background: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 /* Когда есть пагинация - только верхние углы закруглены */

@@ -168,8 +168,8 @@ export const getOrgOptions = async (searchStr, url = null) => {
 }
 
 // То же самое для объектов
-export const getObjectOptions = async (searchStr, url = null) => {
-  console.log(`Search string Obj: ${searchStr}, URL: ${url}`)
+export const getObjectOptions = async (searchStr, organization, url = null) => {
+  console.log(`Search string Obj: ${searchStr}, organization: ${organization}`)
   
   try {
     const organizationsStore = useOrganizationsStore()
@@ -180,7 +180,7 @@ export const getObjectOptions = async (searchStr, url = null) => {
       response = await organizationsStore.sendRequestPage(url)
     } else {
       // Иначе делаем POST с поиском
-      response = await organizationsStore.sendRequestLoadObjects(searchStr)
+      response = await organizationsStore.sendRequestLoadObjects(searchStr, organization)
     }
     
     console.log('📥 Загруженные опции объектов:', response)
