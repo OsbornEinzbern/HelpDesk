@@ -102,6 +102,12 @@
               </RouterLink>
             </li>
             <li>
+              <RouterLink to="/admin/directories/classifications" class="nav-link">
+                <Icon :icon="uiIcons?.icons.directories" width="20" height="20" class="nav-icon-small" />
+                Классификации
+              </RouterLink>
+            </li>
+            <li>
               <RouterLink to="/admin/directories/businessProcesses" class="nav-link">
                 <Icon :icon="uiIcons?.icons.businessProcess" width="20" height="20" class="nav-icon-small" />
                 Бизнес-процессы
@@ -213,6 +219,12 @@
               <RouterLink to="/dispatcher/directories/supportGroups" class="nav-link">
                 <Icon :icon="uiIcons?.icons.users" width="20" height="20" class="nav-icon-small" />
                 Группы поддержки
+              </RouterLink>
+            </li>
+            <li>
+              <RouterLink to="/dispatcher/directories/classifications" class="nav-link">
+                <Icon :icon="uiIcons?.icons.directories" width="20" height="20" class="nav-icon-small" />
+                Классификации
               </RouterLink>
             </li>
             <li>
@@ -628,10 +640,11 @@ onUnmounted(() => {
 }
 
 .nav-item:has(.nav-section) .submenu {
-  max-height: 200px;
+  max-height: 360px;
 }
+
 .nav-item:has(.nav-link.router-link-active) .submenu {
-  max-height: 200px;
+  max-height: 360px;
 }
 
 .submenu li {

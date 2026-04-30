@@ -71,6 +71,16 @@ const dispatcherRoutes = [
     },
   },
   {
+  path: '/admin/directories/classifications',
+  name: 'DClassifications',
+  component: () => import('@/views/admin/directories/DClassifications.vue'),
+  meta: {
+      title: 'Справочник классификаций',
+      requiresAuth: true,
+      role: 'admin',
+    },
+  },
+  {
     path: '/dispatcher/directories/businessProcesses',
     name: 'dispatcher-business-processes',
     component: () => import('@/views/admin/directories/DBusinessProcesses.vue'),

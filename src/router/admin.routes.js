@@ -77,6 +77,16 @@ const adminRoutes = [
     },
   },
   {
+  path: '/admin/directories/classifications',
+  name: 'DClassifications',
+  component: () => import('@/views/admin/directories/DClassifications.vue'),
+  meta: {
+      title: 'Справочник классификаций',
+      requiresAuth: true,
+      role: 'admin',
+    },
+  },
+  {
     path: '/admin/directories/businessProcesses',
     name: 'admin-business-processes',
     component: () => import('@/views/admin/directories/DBusinessProcesses.vue'),
